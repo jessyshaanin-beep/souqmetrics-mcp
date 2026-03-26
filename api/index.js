@@ -14,13 +14,11 @@ app.get("/", (_req, res) => {
 });
 
 app.get("/health", (_req, res) => {
+  res.json({ ok: true });
+});
 
-app.get("/business-summary", async (req, res) => {
+app.get("/business-summary", async (_req, res) => {
   try {
-
-    // For now we hardcode a test business
-    // Later this will come from authentication
-
     const testBusinessId = "e3661b20-d16f-4435-a38f-d7a0c706be4d";
 
     const { data, error } = await supabase
@@ -41,9 +39,7 @@ app.get("/business-summary", async (req, res) => {
     const totalOrders = data?.length || 0;
 
     const averageOrderValue =
-      totalOrders > 0
-        ? totalRevenue / totalOrders
-        : 0;
+      totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
     return res.json({
       ok: true,
@@ -51,16 +47,12 @@ app.get("/business-summary", async (req, res) => {
       total_orders: totalOrders,
       average_order_value: averageOrderValue,
     });
-
   } catch (err) {
     return res.status(500).json({
       ok: false,
       error: err.message,
     });
   }
-});
-
-  res.json({ ok: true });
 });
 
 export default app;
