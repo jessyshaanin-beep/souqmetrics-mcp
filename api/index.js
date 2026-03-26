@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
 
@@ -17,8 +18,4 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`SouqMetrics MCP starter listening on port ${PORT}`);
-});
+export default app;
