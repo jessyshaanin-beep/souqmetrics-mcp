@@ -1,5 +1,6 @@
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
+import { TEST_BUSINESS_ID, getStartDateFromTimeframe } from "../lib/helpers.js";
 
 const app = express();
 app.use(express.json());
@@ -20,40 +21,16 @@ app.get("/health", (_req, res) => {
 app.get("/business-summary", async (req, res) => {
   try {
 
-    const testBusinessId = "e3661b20-d16f-4435-a38f-d7a0c706be4d";
+    const testBusinessId = TEST_BUSINESS_ID;
 
-    // Get timeframe from URL
-    const timeframe = req.query.timeframe || "last_30_days";
-
-    // Create date range
-    const now = new Date();
-    let startDate;
-
-    if (timeframe === "today") {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-    }
-
-    else if (timeframe === "last_7_days") {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - 7);
-    }
-
-    else if (timeframe === "last_30_days") {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - 30);
-    }
-
-    else {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - 30);
-    }
+   const timeframe = req.query.timeframe || "last_30_days";
+const startDate = getStartDateFromTimeframe(timeframe);
 
     const { data, error } = await supabase
       .from("orders")
       .select("order_total, order_date")
       .eq("business_id", testBusinessId)
-      .gte("order_date", startDate.toISOString());
+      .gte("order_date", startDate);
 
     if (error) {
       return res.status(500).json({
@@ -91,7 +68,7 @@ app.get("/business-summary", async (req, res) => {
 app.get("/channel-performance", async (req, res) => {
   try {
 
-    const testBusinessId = "e3661b20-d16f-4435-a38f-d7a0c706be4d";
+   const testBusinessId = TEST_BUSINESS_ID;
 
     const timeframe = req.query.timeframe || "last_30_days";
 
@@ -117,7 +94,7 @@ app.get("/channel-performance", async (req, res) => {
       .from("orders")
       .select("channel, order_total, order_date")
       .eq("business_id", testBusinessId)
-      .gte("order_date", startDate.toISOString());
+      .gte("order_date", startDate);
 
     if (error) {
       return res.status(500).json({
@@ -160,7 +137,7 @@ app.get("/channel-performance", async (req, res) => {
 
 app.get("/top-products", async (req, res) => {
   try {
-    const testBusinessId = "e3661b20-d16f-4435-a38f-d7a0c706be4d";
+    const testBusinessId = TEST_BUSINESS_ID;
 
     const timeframe = req.query.timeframe || "last_30_days";
     const limit = Number(req.query.limit || 10);
@@ -252,7 +229,7 @@ app.get("/top-products", async (req, res) => {
 
 app.get("/payment-breakdown", async (req, res) => {
   try {
-    const testBusinessId = "e3661b20-d16f-4435-a38f-d7a0c706be4d";
+    const testBusinessId = TEST_BUSINESS_ID;
 
     const timeframe = req.query.timeframe || "last_30_days";
 
@@ -274,7 +251,7 @@ app.get("/payment-breakdown", async (req, res) => {
       .from("orders")
       .select("payment_method, order_total, order_date")
       .eq("business_id", testBusinessId)
-      .gte("order_date", startDate.toISOString());
+      .gte("order_date", startDate);
 
     if (error) {
       return res.status(500).json({
