@@ -157,4 +157,97 @@ app.get("/channel-performance", async (req, res) => {
   }
 });
 
+
+app.get("/top-products", async (req, res) => {
+  try {
+    const testBusinessId = "e3661b20-d16f-4435-a38f-d7a0c706be4d";
+
+    const timeframe = req.query.timeframe || "last_30_days";
+    const limit = Number(req.query.limit || 10);
+
+    const now = new Date();
+    let startDate;
+
+    if (timeframe === "today") {
+      startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (timeframe === "last_7_days") {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 7);
+    } else {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 30);
+    }
+
+    // First get orders for this business in timeframe
+    const { data: orders, error: ordersError } = await supabase
+      .from("orders")
+      .select("id, order_date")
+      .eq("business_id", testBusinessId)
+      .gte("order_date", startDate.toISOString());
+
+    if (ordersError) {
+      return res.status(500).json({
+        ok: false,
+        error: ordersError.message,
+      });
+    }
+
+    const orderIds = (orders || []).map(order => order.id);
+
+    if (orderIds.length === 0) {
+      return res.json({
+        ok: true,
+        timeframe,
+        products: [],
+      });
+    }
+
+    // Then get matching order items
+    const { data: items, error: itemsError } = await supabase
+      .from("order_items")
+      .select("order_id, product_name, revenue")
+      .in("order_id", orderIds);
+
+    if (itemsError) {
+      return res.status(500).json({
+        ok: false,
+        error: itemsError.message,
+      });
+    }
+
+    const productTotals = {};
+
+    (items || []).forEach(item => {
+      const productName = item.product_name || "Unnamed Product";
+      const revenue = Number(item.revenue || 0);
+
+      if (!productTotals[productName]) {
+        productTotals[productName] = {
+          product_name: productName,
+          revenue: 0,
+        };
+      }
+
+      productTotals[productName].revenue += revenue;
+    });
+
+    const products = Object.values(productTotals)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, limit);
+
+    return res.json({
+      ok: true,
+      timeframe,
+      products,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+    });
+  }
+});
+
 export default app;

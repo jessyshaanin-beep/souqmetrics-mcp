@@ -3,6 +3,7 @@
     { "source": "/", "destination": "/api" },
     { "source": "/health", "destination": "/api" },
     { "source": "/business-summary", "destination": "/api" },
-    { "source": "/channel-performance", "destination": "/api" }
+    { "source": "/channel-performance", "destination": "/api" },
+    { "source": "/top-products", "destination": "/api" }
   ]
 }
