@@ -330,4 +330,40 @@ app.get("/workspace-list", async (req, res) => {
   }
 });
 
+app.get("/workspace-members", async (req, res) => {
+  try {
+    const businessId = req.query.business_id || TEST_BUSINESS_ID;
+
+    const { data, error } = await supabase
+      .from("workspace_members")
+      .select("email, role, created_at")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+
+    const members = (data || []).map(member => ({
+      email: member.email,
+      role: member.role,
+      joined_at: member.created_at
+    }));
+
+    return res.json({
+      ok: true,
+      members
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+    });
+  }
+});
+
 export default app;
