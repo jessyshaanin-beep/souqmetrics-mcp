@@ -297,4 +297,37 @@ const startDate = getStartDateFromTimeframe(timeframe);
   }
 });
 
+app.get("/workspace-list", async (req, res) => {
+  try {
+
+    const { data, error } = await supabase
+      .from("businesses")
+      .select("id, business_name, currency");
+
+    if (error) {
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+
+    const workspaces = (data || []).map(b => ({
+      id: b.id,
+      name: b.business_name,
+      currency: b.currency || "USD"
+    }));
+
+    return res.json({
+      ok: true,
+      workspaces
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+    });
+  }
+});
+
 export default app;

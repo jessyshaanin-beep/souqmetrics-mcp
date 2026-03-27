@@ -5,6 +5,7 @@
     { "source": "/business-summary", "destination": "/api" },
     { "source": "/channel-performance", "destination": "/api" },
     { "source": "/top-products", "destination": "/api" },
-    { "source": "/payment-breakdown", "destination": "/api" }
+    { "source": "/payment-breakdown", "destination": "/api" },
+    { "source": "/workspace-list", "destination": "/api" }
   ]
 }
