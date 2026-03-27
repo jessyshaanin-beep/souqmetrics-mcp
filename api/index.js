@@ -5,6 +5,37 @@ import { TEST_BUSINESS_ID, getStartDateFromTimeframe } from "../lib/helpers.js";
 const app = express();
 app.use(express.json());
 
+
+// 🔐 API Key Protection Middleware
+
+app.use((req, res, next) => {
+
+  // Allow health check without API key
+  if (req.path === "/" || req.path === "/health") {
+    return next();
+  }
+
+  const apiKey =
+    req.headers["x-api-key"];
+
+  if (!apiKey) {
+    return res.status(401).json({
+      ok: false,
+      error: "Missing API key"
+    });
+  }
+
+  if (apiKey !== process.env.MCP_API_KEY) {
+    return res.status(403).json({
+      ok: false,
+      error: "Invalid API key"
+    });
+  }
+
+  next();
+
+});
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -122,7 +153,7 @@ const startDate = getStartDateFromTimeframe(timeframe);
 
 app.get("/top-products", async (req, res) => {
   try {
-    
+
    const testBusinessId =
   req.query.business_id || TEST_BUSINESS_ID;
 
