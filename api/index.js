@@ -366,4 +366,69 @@ app.get("/workspace-members", async (req, res) => {
   }
 });
 
+app.get("/workspace-list-by-user", async (req, res) => {
+  try {
+    const userId = req.query.user_id;
+
+    if (!userId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing user_id"
+      });
+    }
+
+    // Step 1: get memberships for this user
+    const { data: memberships, error: membershipsError } = await supabase
+      .from("workspace_members")
+      .select("business_id")
+      .eq("user_id", userId);
+
+    if (membershipsError) {
+      return res.status(500).json({
+        ok: false,
+        error: membershipsError.message
+      });
+    }
+
+    const businessIds = (memberships || []).map(m => m.business_id);
+
+    if (businessIds.length === 0) {
+      return res.json({
+        ok: true,
+        workspaces: []
+      });
+    }
+
+    // Step 2: get businesses for those memberships
+    const { data: businesses, error: businessesError } = await supabase
+      .from("businesses")
+      .select("id, business_name, currency")
+      .in("id", businessIds);
+
+    if (businessesError) {
+      return res.status(500).json({
+        ok: false,
+        error: businessesError.message
+      });
+    }
+
+    const workspaces = (businesses || []).map(b => ({
+      id: b.id,
+      name: b.business_name,
+      currency: b.currency || "USD"
+    }));
+
+    return res.json({
+      ok: true,
+      workspaces
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message
+    });
+  }
+});
+
 export default app;

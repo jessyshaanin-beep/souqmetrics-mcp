@@ -7,6 +7,7 @@
     { "source": "/top-products", "destination": "/api" },
     { "source": "/payment-breakdown", "destination": "/api" },
     { "source": "/workspace-list", "destination": "/api" },
-    { "source": "/workspace-members", "destination": "/api" }
+    { "source": "/workspace-members", "destination": "/api" },
+    { "source": "/workspace-list-by-user", "destination": "/api" }
   ]
 }
