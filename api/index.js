@@ -431,4 +431,87 @@ app.get("/workspace-list-by-user", async (req, res) => {
   }
 });
 
+app.get("/business-summary-by-user", async (req, res) => {
+  try {
+    const userId = req.query.user_id;
+    const businessId = req.query.business_id;
+    const timeframe = req.query.timeframe || "last_30_days";
+
+    if (!userId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing user_id"
+      });
+    }
+
+    if (!businessId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing business_id"
+      });
+    }
+
+    // Step 1: verify user belongs to workspace
+    const { data: membership, error: membershipError } = await supabase
+      .from("workspace_members")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (membershipError) {
+      return res.status(500).json({
+        ok: false,
+        error: membershipError.message
+      });
+    }
+
+    if (!membership) {
+      return res.status(403).json({
+        ok: false,
+        error: "User does not have access to this workspace"
+      });
+    }
+
+    // Step 2: get date range
+    const startDate = getStartDateFromTimeframe(timeframe);
+
+    // Step 3: get analytics
+    const { data, error } = await supabase
+      .from("orders")
+      .select("order_total, order_date")
+      .eq("business_id", businessId)
+      .gte("order_date", startDate);
+
+    if (error) {
+      return res.status(500).json({
+        ok: false,
+        error: error.message
+      });
+    }
+
+    const totalRevenue =
+      data?.reduce((sum, o) => sum + Number(o.order_total), 0) || 0;
+
+    const totalOrders = data?.length || 0;
+
+    const averageOrderValue =
+      totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    return res.json({
+      ok: true,
+      timeframe,
+      total_revenue: totalRevenue,
+      total_orders: totalOrders,
+      average_order_value: averageOrderValue
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message
+    });
+  }
+});
+
 export default app;
