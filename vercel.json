@@ -4,6 +4,7 @@
     { "source": "/health", "destination": "/api" },
     { "source": "/business-summary", "destination": "/api" },
     { "source": "/channel-performance", "destination": "/api" },
-    { "source": "/top-products", "destination": "/api" }
+    { "source": "/top-products", "destination": "/api" },
+    { "source": "/payment-breakdown", "destination": "/api" }
   ]
 }

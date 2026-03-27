@@ -250,4 +250,81 @@ app.get("/top-products", async (req, res) => {
   }
 });
 
+app.get("/payment-breakdown", async (req, res) => {
+  try {
+    const testBusinessId = "e3661b20-d16f-4435-a38f-d7a0c706be4d";
+
+    const timeframe = req.query.timeframe || "last_30_days";
+
+    const now = new Date();
+    let startDate;
+
+    if (timeframe === "today") {
+      startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (timeframe === "last_7_days") {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 7);
+    } else {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 30);
+    }
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("payment_method, order_total, order_date")
+      .eq("business_id", testBusinessId)
+      .gte("order_date", startDate.toISOString());
+
+    if (error) {
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+
+    const breakdown = {
+      card: { orders: 0, revenue: 0 },
+      cod: { orders: 0, revenue: 0 },
+      whish: { orders: 0, revenue: 0 },
+      bnpl: { orders: 0, revenue: 0 },
+      other: { orders: 0, revenue: 0 }
+    };
+
+    (data || []).forEach(order => {
+      const method = (order.payment_method || "").toLowerCase();
+      const revenue = Number(order.order_total || 0);
+
+      if (method === "card") {
+        breakdown.card.orders += 1;
+        breakdown.card.revenue += revenue;
+      } else if (method === "cod") {
+        breakdown.cod.orders += 1;
+        breakdown.cod.revenue += revenue;
+      } else if (method === "whish") {
+        breakdown.whish.orders += 1;
+        breakdown.whish.revenue += revenue;
+      } else if (method === "bnpl") {
+        breakdown.bnpl.orders += 1;
+        breakdown.bnpl.revenue += revenue;
+      } else {
+        breakdown.other.orders += 1;
+        breakdown.other.revenue += revenue;
+      }
+    });
+
+    return res.json({
+      ok: true,
+      timeframe,
+      payment_methods: breakdown,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+    });
+  }
+});
+
 export default app;
