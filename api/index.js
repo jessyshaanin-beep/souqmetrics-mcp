@@ -21,7 +21,8 @@ app.get("/health", (_req, res) => {
 app.get("/business-summary", async (req, res) => {
   try {
 
-    const testBusinessId = TEST_BUSINESS_ID;
+    const testBusinessId =
+  req.query.business_id || TEST_BUSINESS_ID;
 
    const timeframe = req.query.timeframe || "last_30_days";
 const startDate = getStartDateFromTimeframe(timeframe);
@@ -68,7 +69,8 @@ const startDate = getStartDateFromTimeframe(timeframe);
 app.get("/channel-performance", async (req, res) => {
   try {
 
-   const testBusinessId = TEST_BUSINESS_ID;
+   const testBusinessId =
+  req.query.business_id || TEST_BUSINESS_ID;
 
    const timeframe = req.query.timeframe || "last_30_days";
 const startDate = getStartDateFromTimeframe(timeframe);
@@ -120,7 +122,9 @@ const startDate = getStartDateFromTimeframe(timeframe);
 
 app.get("/top-products", async (req, res) => {
   try {
-    const testBusinessId = TEST_BUSINESS_ID;
+    
+   const testBusinessId =
+  req.query.business_id || TEST_BUSINESS_ID;
 
     const timeframe = req.query.timeframe || "last_30_days";
 const limit = Number(req.query.limit || 10);
@@ -199,7 +203,8 @@ const startDate = getStartDateFromTimeframe(timeframe);
 
 app.get("/payment-breakdown", async (req, res) => {
   try {
-    const testBusinessId = TEST_BUSINESS_ID;
+    const testBusinessId =
+  req.query.business_id || TEST_BUSINESS_ID;
 
     const timeframe = req.query.timeframe || "last_30_days";
 const startDate = getStartDateFromTimeframe(timeframe);
