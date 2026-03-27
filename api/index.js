@@ -87,4 +87,74 @@ app.get("/business-summary", async (req, res) => {
     });
   }
 });
+
+app.get("/channel-performance", async (req, res) => {
+  try {
+
+    const testBusinessId = "e3661b20-d16f-4435-a38f-d7a0c706be4d";
+
+    const timeframe = req.query.timeframe || "last_30_days";
+
+    const now = new Date();
+    let startDate;
+
+    if (timeframe === "today") {
+      startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+    }
+
+    else if (timeframe === "last_7_days") {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 7);
+    }
+
+    else {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 30);
+    }
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("channel, order_total, order_date")
+      .eq("business_id", testBusinessId)
+      .gte("order_date", startDate.toISOString());
+
+    if (error) {
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+
+    // Group revenue by channel
+    const channelTotals = {};
+
+    data.forEach(order => {
+
+      const channel =
+        order.channel || "direct";
+
+      if (!channelTotals[channel]) {
+        channelTotals[channel] = 0;
+      }
+
+      channelTotals[channel] +=
+        Number(order.order_total);
+
+    });
+
+    return res.json({
+      ok: true,
+      timeframe,
+      channels: channelTotals,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+    });
+  }
+});
+
 export default app;
