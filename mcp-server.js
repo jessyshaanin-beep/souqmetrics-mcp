@@ -5,22 +5,44 @@ const server = new McpServer({
   version: "0.1.0",
 });
 
+const BASE_URL = "https://souqmetrics-mcp.vercel.app";
+const API_KEY = process.env.MCP_API_KEY;
+
 server.tool(
   "list_workspaces",
   "Return all workspaces available to the authenticated SouqMetrics user.",
   {},
   async () => {
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            tool: "list_workspaces",
-            message: "Tool registered successfully"
-          })
-        }
-      ]
-    };
+    try {
+      const response = await fetch(`${BASE_URL}/workspace-list`, {
+        headers: {
+          "x-api-key": API_KEY,
+        },
+      });
+
+      const data = await response.json();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(data),
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              ok: false,
+              error: err.message,
+            }),
+          },
+        ],
+      };
+    }
   }
 );
 
@@ -31,20 +53,39 @@ server.tool(
     business_id: { type: "string", description: "Workspace business ID" },
     timeframe: { type: "string", description: "today, last_7_days, or last_30_days" }
   },
-  async ({ business_id, timeframe }) => {
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            tool: "get_business_summary",
-            business_id,
-            timeframe,
-            message: "Tool registered successfully"
-          })
-        }
-      ]
-    };
+  async ({ business_id, timeframe = "last_30_days" }) => {
+    try {
+      const url = `${BASE_URL}/business-summary?business_id=${encodeURIComponent(business_id)}&timeframe=${encodeURIComponent(timeframe)}`;
+
+      const response = await fetch(url, {
+        headers: {
+          "x-api-key": API_KEY,
+        },
+      });
+
+      const data = await response.json();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(data),
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              ok: false,
+              error: err.message,
+            }),
+          },
+        ],
+      };
+    }
   }
 );
 
