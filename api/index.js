@@ -70,25 +70,8 @@ app.get("/channel-performance", async (req, res) => {
 
    const testBusinessId = TEST_BUSINESS_ID;
 
-    const timeframe = req.query.timeframe || "last_30_days";
-
-    const now = new Date();
-    let startDate;
-
-    if (timeframe === "today") {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-    }
-
-    else if (timeframe === "last_7_days") {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - 7);
-    }
-
-    else {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - 30);
-    }
+   const timeframe = req.query.timeframe || "last_30_days";
+const startDate = getStartDateFromTimeframe(timeframe);
 
     const { data, error } = await supabase
       .from("orders")
@@ -140,28 +123,15 @@ app.get("/top-products", async (req, res) => {
     const testBusinessId = TEST_BUSINESS_ID;
 
     const timeframe = req.query.timeframe || "last_30_days";
-    const limit = Number(req.query.limit || 10);
-
-    const now = new Date();
-    let startDate;
-
-    if (timeframe === "today") {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-    } else if (timeframe === "last_7_days") {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - 7);
-    } else {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - 30);
-    }
+const limit = Number(req.query.limit || 10);
+const startDate = getStartDateFromTimeframe(timeframe);
 
     // First get orders for this business in timeframe
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
       .select("id, order_date")
       .eq("business_id", testBusinessId)
-      .gte("order_date", startDate.toISOString());
+      .gte("order_date", startDate);
 
     if (ordersError) {
       return res.status(500).json({
@@ -232,20 +202,7 @@ app.get("/payment-breakdown", async (req, res) => {
     const testBusinessId = TEST_BUSINESS_ID;
 
     const timeframe = req.query.timeframe || "last_30_days";
-
-    const now = new Date();
-    let startDate;
-
-    if (timeframe === "today") {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-    } else if (timeframe === "last_7_days") {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - 7);
-    } else {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - 30);
-    }
+const startDate = getStartDateFromTimeframe(timeframe);
 
     const { data, error } = await supabase
       .from("orders")
