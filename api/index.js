@@ -514,4 +514,89 @@ app.get("/business-summary-by-user", async (req, res) => {
   }
 });
 
+app.get("/channel-performance-by-user", async (req, res) => {
+  try {
+    const userId = req.query.user_id;
+    const businessId = req.query.business_id;
+    const timeframe = req.query.timeframe || "last_30_days";
+
+    if (!userId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing user_id"
+      });
+    }
+
+    if (!businessId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing business_id"
+      });
+    }
+
+    // Step 1: verify user belongs to workspace
+    const { data: membership, error: membershipError } = await supabase
+      .from("workspace_members")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (membershipError) {
+      return res.status(500).json({
+        ok: false,
+        error: membershipError.message
+      });
+    }
+
+    if (!membership) {
+      return res.status(403).json({
+        ok: false,
+        error: "User does not have access to this workspace"
+      });
+    }
+
+    // Step 2: get date range
+    const startDate = getStartDateFromTimeframe(timeframe);
+
+    // Step 3: get channel analytics
+    const { data, error } = await supabase
+      .from("orders")
+      .select("channel, order_total, order_date")
+      .eq("business_id", businessId)
+      .gte("order_date", startDate);
+
+    if (error) {
+      return res.status(500).json({
+        ok: false,
+        error: error.message
+      });
+    }
+
+    const channelTotals = {};
+
+    (data || []).forEach(order => {
+      const channel = order.channel || "direct";
+
+      if (!channelTotals[channel]) {
+        channelTotals[channel] = 0;
+      }
+
+      channelTotals[channel] += Number(order.order_total || 0);
+    });
+
+    return res.json({
+      ok: true,
+      timeframe,
+      channels: channelTotals
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message
+    });
+  }
+});
+
 export default app;
