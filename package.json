@@ -4,9 +4,10 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "dev": "node --env-file=.env server.js",
-    "start": "node server.js"
-  },
+  "dev:api": "vercel dev",
+  "test:mcp": "node test-mcp.js",
+  "mcp:stdio": "node mcp-stdio.js"
+},
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.28.0",
     "@supabase/supabase-js": "^2.100.1",
