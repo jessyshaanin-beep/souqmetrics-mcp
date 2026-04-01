@@ -716,4 +716,104 @@ app.get("/top-products-by-user", async (req, res) => {
   }
 });
 
+app.get("/payment-breakdown-by-user", async (req, res) => {
+  try {
+    const userId = req.query.user_id;
+    const businessId = req.query.business_id;
+    const timeframe = req.query.timeframe || "last_30_days";
+
+    if (!userId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing user_id"
+      });
+    }
+
+    if (!businessId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing business_id"
+      });
+    }
+
+    const { data: membership, error: membershipError } = await supabase
+      .from("workspace_members")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (membershipError) {
+      return res.status(500).json({
+        ok: false,
+        error: membershipError.message
+      });
+    }
+
+    if (!membership) {
+      return res.status(403).json({
+        ok: false,
+        error: "User does not have access to this workspace"
+      });
+    }
+
+    const startDate = getStartDateFromTimeframe(timeframe);
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("payment_method, order_total, order_date")
+      .eq("business_id", businessId)
+      .gte("order_date", startDate);
+
+    if (error) {
+      return res.status(500).json({
+        ok: false,
+        error: error.message
+      });
+    }
+
+    const breakdown = {
+      card: { orders: 0, revenue: 0 },
+      cod: { orders: 0, revenue: 0 },
+      whish: { orders: 0, revenue: 0 },
+      bnpl: { orders: 0, revenue: 0 },
+      other: { orders: 0, revenue: 0 }
+    };
+
+    (data || []).forEach(order => {
+      const method = (order.payment_method || "").toLowerCase();
+      const revenue = Number(order.order_total || 0);
+
+      if (method === "card") {
+        breakdown.card.orders += 1;
+        breakdown.card.revenue += revenue;
+      } else if (method === "cod") {
+        breakdown.cod.orders += 1;
+        breakdown.cod.revenue += revenue;
+      } else if (method === "whish") {
+        breakdown.whish.orders += 1;
+        breakdown.whish.revenue += revenue;
+      } else if (method === "bnpl") {
+        breakdown.bnpl.orders += 1;
+        breakdown.bnpl.revenue += revenue;
+      } else {
+        breakdown.other.orders += 1;
+        breakdown.other.revenue += revenue;
+      }
+    });
+
+    return res.json({
+      ok: true,
+      timeframe,
+      payment_methods: breakdown
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message
+    });
+  }
+});
+
 export default app;
