@@ -1,5 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod/v3";
+
 
 const server = new McpServer({
   name: "SouqMetrics",
@@ -12,9 +12,12 @@ const API_KEY = process.env.MCP_API_KEY;
 server.tool(
   "list_workspaces",
   "Return all workspaces available to the authenticated SouqMetrics user.",
-  z.object({
-    user_id: z.string().describe("Supabase user ID")
-  }),
+  {
+    user_id: {
+      type: "string",
+      description: "Supabase user ID"
+    }
+  },
   async ({ user_id }) => {
     try {
 
