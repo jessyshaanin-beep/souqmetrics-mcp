@@ -10,6 +10,7 @@
     { "source": "/workspace-members", "destination": "/api" },
     { "source": "/workspace-list-by-user", "destination": "/api" },
     { "source": "/business-summary-by-user", "destination": "/api" },
+    { "source": "/top-products-by-user", "destination": "/api" },
     { "source": "/channel-performance-by-user", "destination": "/api" }
   ]
 }

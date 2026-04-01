@@ -599,4 +599,121 @@ app.get("/channel-performance-by-user", async (req, res) => {
   }
 });
 
+app.get("/top-products-by-user", async (req, res) => {
+  try {
+    const userId = req.query.user_id;
+    const businessId = req.query.business_id;
+    const timeframe = req.query.timeframe || "last_30_days";
+    const limit = Number(req.query.limit || 10);
+
+    if (!userId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing user_id"
+      });
+    }
+
+    if (!businessId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing business_id"
+      });
+    }
+
+    // Step 1: verify user belongs to workspace
+    const { data: membership, error: membershipError } = await supabase
+      .from("workspace_members")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (membershipError) {
+      return res.status(500).json({
+        ok: false,
+        error: membershipError.message
+      });
+    }
+
+    if (!membership) {
+      return res.status(403).json({
+        ok: false,
+        error: "User does not have access to this workspace"
+      });
+    }
+
+    // Step 2: get date range
+    const startDate = getStartDateFromTimeframe(timeframe);
+
+    // Step 3: get orders in timeframe
+    const { data: orders, error: ordersError } = await supabase
+      .from("orders")
+      .select("id, order_date")
+      .eq("business_id", businessId)
+      .gte("order_date", startDate);
+
+    if (ordersError) {
+      return res.status(500).json({
+        ok: false,
+        error: ordersError.message
+      });
+    }
+
+    const orderIds = (orders || []).map(order => order.id);
+
+    if (orderIds.length === 0) {
+      return res.json({
+        ok: true,
+        timeframe,
+        products: []
+      });
+    }
+
+    // Step 4: get matching order items
+    const { data: items, error: itemsError } = await supabase
+      .from("order_items")
+      .select("order_id, product_name, revenue")
+      .in("order_id", orderIds);
+
+    if (itemsError) {
+      return res.status(500).json({
+        ok: false,
+        error: itemsError.message
+      });
+    }
+
+    const productTotals = {};
+
+    (items || []).forEach(item => {
+      const productName = item.product_name || "Unnamed Product";
+      const revenue = Number(item.revenue || 0);
+
+      if (!productTotals[productName]) {
+        productTotals[productName] = {
+          product_name: productName,
+          revenue: 0
+        };
+      }
+
+      productTotals[productName].revenue += revenue;
+    });
+
+    const products = Object.values(productTotals)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, limit);
+
+    return res.json({
+      ok: true,
+      timeframe,
+      products
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message
+    });
+  }
+});
+
 export default app;
