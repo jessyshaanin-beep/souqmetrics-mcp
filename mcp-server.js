@@ -288,18 +288,20 @@ server.registerTool(
   "get_payment_breakdown",
   {
     title: "Get Payment Breakdown",
-    description: "Return revenue and orders grouped by COD, Card, and BNPL.",
+    description: "Return revenue and orders grouped by COD, Card, and BNPL for a selected workspace and timeframe.",
     inputSchema: z.object({
       user_id: z.string().describe("Supabase user ID"),
       business_id: z.string().describe("Workspace business ID"),
+      timeframe: z.string().optional().describe("today, last_7_days, or last_30_days"),
     }),
   },
-  async ({ user_id, business_id }) => {
+  async ({ user_id, business_id, timeframe = "last_30_days" }) => {
     try {
       const url =
         `${BASE_URL}/payment-breakdown-by-user` +
         `?user_id=${encodeURIComponent(user_id)}` +
-        `&business_id=${encodeURIComponent(business_id)}`;
+        `&business_id=${encodeURIComponent(business_id)}` +
+        `&timeframe=${encodeURIComponent(timeframe)}`;
 
       const response = await fetch(url, {
         headers: {
@@ -337,5 +339,4 @@ server.registerTool(
     }
   }
 );
-
 export default server;
