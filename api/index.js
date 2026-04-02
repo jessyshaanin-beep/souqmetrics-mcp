@@ -816,4 +816,84 @@ app.get("/payment-breakdown-by-user", async (req, res) => {
   }
 });
 
+app.get("/channel-breakdown-by-user", async (req, res) => {
+  try {
+    const { user_id, business_id, timeframe = "last_30_days" } = req.query;
+
+    if (!user_id || !business_id) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing user_id or business_id",
+      });
+    }
+
+    // Date filtering logic (same style as summary)
+
+    let dateFilter = "";
+
+    if (timeframe === "today") {
+      dateFilter = "order_date >= CURRENT_DATE";
+    }
+
+    if (timeframe === "last_7_days") {
+      dateFilter = "order_date >= CURRENT_DATE - INTERVAL '7 days'";
+    }
+
+    if (timeframe === "last_30_days") {
+      dateFilter = "order_date >= CURRENT_DATE - INTERVAL '30 days'";
+    }
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("order_total, utm_source, utm_medium")
+      .eq("business_id", business_id);
+
+    if (error) {
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+
+    // Channel classification logic
+
+    const channels = {
+      paid_social: { revenue: 0, orders: 0 },
+      organic_social: { revenue: 0, orders: 0 },
+      direct_search: { revenue: 0, orders: 0 },
+    };
+
+    for (const order of data || []) {
+      const revenue = Number(order.order_total) || 0;
+
+      const source = (order.utm_source || "").toLowerCase();
+      const medium = (order.utm_medium || "").toLowerCase();
+
+      let bucket = "direct_search";
+
+      if (medium === "paid" && source.includes("social")) {
+        bucket = "paid_social";
+      }
+
+      else if (medium === "social") {
+        bucket = "organic_social";
+      }
+
+      channels[bucket].revenue += revenue;
+      channels[bucket].orders += 1;
+    }
+
+    return res.json({
+      ok: true,
+      channels,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+    });
+  }
+});
+
 export default app;
