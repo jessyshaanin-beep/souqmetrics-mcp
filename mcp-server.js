@@ -116,4 +116,58 @@ server.registerTool(
   }
 );
 
+server.registerTool(
+  "get_profit_summary",
+  {
+    title: "Get Profit Summary",
+    description: "Return estimated profit and margin for a selected workspace.",
+    inputSchema: z.object({
+      user_id: z.string().describe("Supabase user ID"),
+      business_id: z.string().describe("Workspace business ID"),
+    }),
+  },
+  async ({ user_id, business_id }) => {
+    try {
+      const url =
+        `${BASE_URL}/profit-summary-by-user` +
+        `?user_id=${encodeURIComponent(user_id)}` +
+        `&business_id=${encodeURIComponent(business_id)}`;
+
+      const response = await fetch(url, {
+        headers: {
+          "x-api-key": API_KEY,
+        },
+      });
+
+      const data = await response.json();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(data),
+          },
+        ],
+        structuredContent: data,
+      };
+    } catch (err) {
+      const errorData = {
+        ok: false,
+        error: err.message,
+      };
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(errorData),
+          },
+        ],
+        structuredContent: errorData,
+        isError: true,
+      };
+    }
+  }
+);
+
 export default server;
