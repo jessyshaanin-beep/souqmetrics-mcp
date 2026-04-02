@@ -226,4 +226,62 @@ server.registerTool(
   }
 );
 
+server.registerTool(
+  "get_top_products",
+  {
+    title: "Get Top Products",
+    description: "Return the top-performing products by revenue for a selected workspace and timeframe.",
+    inputSchema: z.object({
+      user_id: z.string().describe("Supabase user ID"),
+      business_id: z.string().describe("Workspace business ID"),
+      timeframe: z.string().optional().describe("today, last_7_days, or last_30_days"),
+      limit: z.number().optional().describe("Maximum number of products to return"),
+    }),
+  },
+  async ({ user_id, business_id, timeframe = "last_30_days", limit = 5 }) => {
+    try {
+      const url =
+        `${BASE_URL}/top-products-by-user` +
+        `?user_id=${encodeURIComponent(user_id)}` +
+        `&business_id=${encodeURIComponent(business_id)}` +
+        `&timeframe=${encodeURIComponent(timeframe)}` +
+        `&limit=${encodeURIComponent(limit)}`;
+
+      const response = await fetch(url, {
+        headers: {
+          "x-api-key": API_KEY,
+        },
+      });
+
+      const data = await response.json();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(data),
+          },
+        ],
+        structuredContent: data,
+      };
+    } catch (err) {
+      const errorData = {
+        ok: false,
+        error: err.message,
+      };
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(errorData),
+          },
+        ],
+        structuredContent: errorData,
+        isError: true,
+      };
+    }
+  }
+);
+
 export default server;
