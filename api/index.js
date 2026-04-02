@@ -882,40 +882,39 @@ app.get("/channel-breakdown-by-user", async (req, res) => {
 
       let bucket = "direct_search";
 
-      // Paid social
-      if (
-        channel.includes("meta") ||
-        channel.includes("facebook") ||
-        channel.includes("instagram") ||
-        channel.includes("tiktok") ||
-        channel.includes("paid") ||
-        medium.includes("paid") ||
-        medium.includes("cpc") ||
-        medium.includes("ppc") ||
-        source.includes("meta") ||
-        source.includes("facebook") ||
-        source.includes("instagram") ||
-        source.includes("ig") ||
-        source.includes("tiktok") ||
-        sourcePlatform.includes("meta") ||
-        sourcePlatform.includes("facebook") ||
-        sourcePlatform.includes("instagram") ||
-        sourcePlatform.includes("tiktok")
-      ) {
-        bucket = "paid_social";
-      }
+const isPaidSocial =
+  medium.includes("paid") ||
+  medium.includes("cpc") ||
+  medium.includes("ppc") ||
+  channel.includes("paid") ||
+  channel.includes("meta") ||
+  channel.includes("facebook ads") ||
+  channel.includes("instagram ads") ||
+  channel.includes("tiktok ads") ||
+  sourcePlatform.includes("meta") ||
+  sourcePlatform.includes("facebook ads") ||
+  sourcePlatform.includes("instagram ads") ||
+  sourcePlatform.includes("tiktok ads");
 
-      // Organic social
-      else if (
-        medium === "social" ||
-        source === "instagram" ||
-        source === "ig" ||
-        source === "facebook" ||
-        source === "tiktok" ||
-        source.includes("social")
-      ) {
-        bucket = "organic_social";
-      }
+const isOrganicSocial =
+  !isPaidSocial && (
+    medium === "social" ||
+    source === "instagram" ||
+    source === "ig" ||
+    source === "facebook" ||
+    source === "tiktok" ||
+    source.includes("social") ||
+    channel.includes("organic social") ||
+    sourcePlatform === "instagram" ||
+    sourcePlatform === "facebook" ||
+    sourcePlatform === "tiktok"
+  );
+
+if (isPaidSocial) {
+  bucket = "paid_social";
+} else if (isOrganicSocial) {
+  bucket = "organic_social";
+}
 
       channels[bucket].revenue += revenue;
       channels[bucket].orders += 1;
