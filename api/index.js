@@ -827,26 +827,37 @@ app.get("/channel-breakdown-by-user", async (req, res) => {
       });
     }
 
-    // Date filtering logic (same style as summary)
+    // Step 1: verify user belongs to workspace
+    const { data: membership, error: membershipError } = await supabase
+      .from("workspace_members")
+      .select("id")
+      .eq("user_id", user_id)
+      .eq("business_id", business_id)
+      .maybeSingle();
 
-    let dateFilter = "";
-
-    if (timeframe === "today") {
-      dateFilter = "order_date >= CURRENT_DATE";
+    if (membershipError) {
+      return res.status(500).json({
+        ok: false,
+        error: membershipError.message,
+      });
     }
 
-    if (timeframe === "last_7_days") {
-      dateFilter = "order_date >= CURRENT_DATE - INTERVAL '7 days'";
+    if (!membership) {
+      return res.status(403).json({
+        ok: false,
+        error: "User does not have access to this workspace",
+      });
     }
 
-    if (timeframe === "last_30_days") {
-      dateFilter = "order_date >= CURRENT_DATE - INTERVAL '30 days'";
-    }
+    // Step 2: get proper start date
+    const startDate = getStartDateFromTimeframe(timeframe);
 
+    // Step 3: fetch only timeframe orders
     const { data, error } = await supabase
       .from("orders")
-      .select("order_total, utm_source, utm_medium")
-      .eq("business_id", business_id);
+      .select("order_total, utm_source, utm_medium, channel, source_platform, order_date")
+      .eq("business_id", business_id)
+      .gte("order_date", startDate);
 
     if (error) {
       return res.status(500).json({
@@ -855,8 +866,6 @@ app.get("/channel-breakdown-by-user", async (req, res) => {
       });
     }
 
-    // Channel classification logic
-
     const channels = {
       paid_social: { revenue: 0, orders: 0 },
       organic_social: { revenue: 0, orders: 0 },
@@ -864,18 +873,47 @@ app.get("/channel-breakdown-by-user", async (req, res) => {
     };
 
     for (const order of data || []) {
-      const revenue = Number(order.order_total) || 0;
+      const revenue = Number(order.order_total || 0);
 
       const source = (order.utm_source || "").toLowerCase();
       const medium = (order.utm_medium || "").toLowerCase();
+      const channel = (order.channel || "").toLowerCase();
+      const sourcePlatform = (order.source_platform || "").toLowerCase();
 
       let bucket = "direct_search";
 
-      if (medium === "paid" && source.includes("social")) {
+      // Paid social
+      if (
+        channel.includes("meta") ||
+        channel.includes("facebook") ||
+        channel.includes("instagram") ||
+        channel.includes("tiktok") ||
+        channel.includes("paid") ||
+        medium.includes("paid") ||
+        medium.includes("cpc") ||
+        medium.includes("ppc") ||
+        source.includes("meta") ||
+        source.includes("facebook") ||
+        source.includes("instagram") ||
+        source.includes("ig") ||
+        source.includes("tiktok") ||
+        sourcePlatform.includes("meta") ||
+        sourcePlatform.includes("facebook") ||
+        sourcePlatform.includes("instagram") ||
+        sourcePlatform.includes("tiktok")
+      ) {
         bucket = "paid_social";
       }
 
-      else if (medium === "social") {
+      // Organic social
+      else if (
+        medium === "social" ||
+        source === "instagram" ||
+        source === "ig" ||
+        source === "facebook" ||
+        source === "tiktok" ||
+        source.includes("social")
+      ) {
         bucket = "organic_social";
       }
 
@@ -885,6 +923,7 @@ app.get("/channel-breakdown-by-user", async (req, res) => {
 
     return res.json({
       ok: true,
+      timeframe,
       channels,
     });
 
