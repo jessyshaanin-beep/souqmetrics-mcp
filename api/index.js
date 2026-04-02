@@ -1027,4 +1027,112 @@ app.get("/payment-breakdown-by-user", async (req, res) => {
   }
 });
 
+app.get("/profit-summary-by-user", async (req, res) => {
+  try {
+
+    const { user_id, business_id } = req.query;
+
+    if (!user_id || !business_id) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing user_id or business_id",
+      });
+    }
+
+    // Get orders
+
+    const { data: orders, error: ordersError } =
+      await supabase
+        .from("orders")
+        .select("order_total")
+        .eq("business_id", business_id);
+
+    if (ordersError) {
+      return res.status(500).json({
+        ok: false,
+        error: ordersError.message,
+      });
+    }
+
+    // Get cost settings
+
+    const { data: costs, error: costError } =
+      await supabase
+        .from("business_cost_settings")
+        .select("*")
+        .eq("business_id", business_id)
+        .single();
+
+    if (costError) {
+      return res.status(500).json({
+        ok: false,
+        error: costError.message,
+      });
+    }
+
+    // Calculate revenue
+
+    const revenue =
+      orders?.reduce(
+        (sum, o) =>
+          sum + Number(o.order_total || 0),
+        0
+      ) || 0;
+
+    const ordersCount =
+      orders?.length || 0;
+
+    // Variable costs
+
+    const cogsCost =
+      revenue * (costs.cogs_pct / 100);
+
+    const deliveryCost =
+      revenue * (costs.delivery_pct / 100);
+
+    // Fixed costs
+
+    const monthlyPlatformFee =
+      Number(costs.monthly_platform_fee || 0);
+
+    const monthlyAgencyFee =
+      Number(costs.monthly_agency_fee || 0);
+
+    const fixedCosts =
+      monthlyPlatformFee +
+      monthlyAgencyFee;
+
+    // Profit
+
+    const estimatedProfit =
+      revenue -
+      cogsCost -
+      deliveryCost -
+      fixedCosts;
+
+    const marginPct =
+      revenue > 0
+        ? (estimatedProfit / revenue) * 100
+        : 0;
+
+    return res.json({
+      ok: true,
+      revenue,
+      orders: ordersCount,
+      estimated_profit:
+        Number(estimatedProfit.toFixed(2)),
+      margin_pct:
+        Number(marginPct.toFixed(2)),
+    });
+
+  } catch (err) {
+
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+    });
+
+  }
+});
+
 export default app;
