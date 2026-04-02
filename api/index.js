@@ -959,4 +959,72 @@ app.get("/top-products-by-user", async (req, res) => {
   }
 });
 
+app.get("/payment-breakdown-by-user", async (req, res) => {
+  try {
+    const { user_id, business_id } = req.query;
+
+    if (!user_id || !business_id) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing user_id or business_id",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("order_total, payment_method")
+      .eq("business_id", business_id);
+
+    if (error) {
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+
+    const payments = {
+      cod: { revenue: 0, orders: 0 },
+      card: { revenue: 0, orders: 0 },
+      bnpl: { revenue: 0, orders: 0 },
+    };
+
+    for (const order of data || []) {
+
+      const revenue =
+        Number(order.order_total) || 0;
+
+      const method =
+        (order.payment_method || "").toLowerCase();
+
+      let bucket = "cod";
+
+      if (method.includes("card")) {
+        bucket = "card";
+      }
+
+      if (
+        method.includes("tabby") ||
+        method.includes("tamara") ||
+        method.includes("bnpl")
+      ) {
+        bucket = "bnpl";
+      }
+
+      payments[bucket].revenue += revenue;
+      payments[bucket].orders += 1;
+    }
+
+    return res.json({
+      ok: true,
+      payments,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+    });
+  }
+});
+
 export default app;
