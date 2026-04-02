@@ -9,12 +9,15 @@ const server = new McpServer({
 const BASE_URL = "https://souqmetrics-mcp.vercel.app";
 const API_KEY = process.env.MCP_API_KEY;
 
-server.tool(
+server.registerTool(
   "list_workspaces",
-  "Return all workspaces available to the authenticated SouqMetrics user.",
-  z.object({
-    user_id: z.string().describe("Supabase user ID"),
-  }),
+  {
+    title: "List Workspaces",
+    description: "Return all workspaces available to the authenticated SouqMetrics user.",
+    inputSchema: z.object({
+      user_id: z.string().describe("Supabase user ID"),
+    }),
+  },
   async ({ user_id }) => {
     try {
       const url =
@@ -35,31 +38,39 @@ server.tool(
             text: JSON.stringify(data),
           },
         ],
+        structuredContent: data,
       };
     } catch (err) {
+      const errorData = {
+        ok: false,
+        error: err.message,
+      };
+
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({
-              ok: false,
-              error: err.message,
-            }),
+            text: JSON.stringify(errorData),
           },
         ],
+        structuredContent: errorData,
+        isError: true,
       };
     }
   }
 );
 
-server.tool(
+server.registerTool(
   "get_business_summary",
-  "Return total revenue, total orders, and average order value for a selected workspace and timeframe.",
-  z.object({
-    user_id: z.string().describe("Supabase user ID"),
-    business_id: z.string().describe("Workspace business ID"),
-    timeframe: z.string().optional().describe("today, last_7_days, or last_30_days"),
-  }),
+  {
+    title: "Get Business Summary",
+    description: "Return total revenue, total orders, and average order value for a selected workspace and timeframe.",
+    inputSchema: z.object({
+      user_id: z.string().describe("Supabase user ID"),
+      business_id: z.string().describe("Workspace business ID"),
+      timeframe: z.string().optional().describe("today, last_7_days, or last_30_days"),
+    }),
+  },
   async ({ user_id, business_id, timeframe = "last_30_days" }) => {
     try {
       const url =
@@ -83,18 +94,23 @@ server.tool(
             text: JSON.stringify(data),
           },
         ],
+        structuredContent: data,
       };
     } catch (err) {
+      const errorData = {
+        ok: false,
+        error: err.message,
+      };
+
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({
-              ok: false,
-              error: err.message,
-            }),
+            text: JSON.stringify(errorData),
           },
         ],
+        structuredContent: errorData,
+        isError: true,
       };
     }
   }
