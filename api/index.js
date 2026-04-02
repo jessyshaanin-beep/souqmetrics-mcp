@@ -896,4 +896,67 @@ app.get("/channel-breakdown-by-user", async (req, res) => {
   }
 });
 
+app.get("/top-products-by-user", async (req, res) => {
+  try {
+    const { user_id, business_id, timeframe = "last_30_days" } = req.query;
+
+    if (!user_id || !business_id) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing user_id or business_id",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("product_name, order_total")
+      .eq("business_id", business_id);
+
+    if (error) {
+      return res.status(500).json({
+        ok: false,
+        error: error.message,
+      });
+    }
+
+    const productMap = {};
+
+    for (const order of data || []) {
+
+      const name =
+        order.product_name || "Unknown Product";
+
+      const revenue =
+        Number(order.order_total) || 0;
+
+      if (!productMap[name]) {
+        productMap[name] = {
+          product_name: name,
+          revenue: 0,
+          orders: 0,
+        };
+      }
+
+      productMap[name].revenue += revenue;
+      productMap[name].orders += 1;
+    }
+
+    const products =
+      Object.values(productMap)
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+
+    return res.json({
+      ok: true,
+      products,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+    });
+  }
+});
+
 export default app;

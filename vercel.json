@@ -13,6 +13,7 @@
     { "source": "/top-products-by-user", "destination": "/api" },
     { "source": "/payment-breakdown-by-user", "destination": "/api" },
     { "source": "/channel-breakdown-by-user", "destination": "/api" },
+    { "source": "/top-products-by-user", "destination": "/api" },
     { "source": "/channel-performance-by-user", "destination": "/api" }
   ]
 }
