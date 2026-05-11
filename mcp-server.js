@@ -8,7 +8,8 @@ const server = new McpServer({
     "Analytics tools for SouqMetrics — query revenue, orders, channels, products, geography, and ad performance for your ecommerce workspace.",
 });
 
-const BASE_URL = "https://souqmetrics-mcp.vercel.app";
+const BASE_URL =
+  process.env.SOUQMETRICS_API_URL || "https://souqmetrics-mcp.vercel.app";
 const API_KEY = process.env.MCP_API_KEY;
 
 // ── Shared fetch helper ────────────────────────────────────────────────────────
