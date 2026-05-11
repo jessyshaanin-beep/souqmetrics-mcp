@@ -16,7 +16,8 @@ app.use(express.json());
 app.use((req, res, next) => {
   if (req.path === "/" || req.path === "/health") return next();
 
-  const apiKey = req.headers["x-api-key"];
+  const qs = new URL(req.url, `http://localhost`).searchParams;
+  const apiKey = req.headers["x-api-key"] || qs.get("api_key");
   if (!apiKey) return res.status(401).json({ ok: false, error: "Missing API key" });
   if (apiKey !== process.env.MCP_API_KEY)
     return res.status(403).json({ ok: false, error: "Invalid API key" });
