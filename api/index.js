@@ -582,3 +582,10 @@ app.get("/daily-trends-by-user", async (req, res) => {
 });
 
 export default app;
+
+if (process.env.NODE_ENV !== "production") {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`SouqMetrics API running on port ${PORT}`);
+  });
+}
