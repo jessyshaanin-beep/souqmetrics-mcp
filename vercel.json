@@ -1,21 +1,5 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/api" },
-    { "source": "/health", "destination": "/api" },
-    { "source": "/business-summary", "destination": "/api" },
-    { "source": "/channel-performance", "destination": "/api" },
-    { "source": "/top-products", "destination": "/api" },
-    { "source": "/payment-breakdown", "destination": "/api" },
-    { "source": "/workspace-list", "destination": "/api" },
-    { "source": "/workspace-members", "destination": "/api" },
-    { "source": "/workspace-list-by-user", "destination": "/api" },
-    { "source": "/business-summary-by-user", "destination": "/api" },
-    { "source": "/top-products-by-user", "destination": "/api" },
-    { "source": "/payment-breakdown-by-user", "destination": "/api" },
-    { "source": "/channel-breakdown-by-user", "destination": "/api" },
-    { "source": "/top-products-by-user", "destination": "/api" },
-    { "source": "/payment-breakdown-by-user", "destination": "/api" },
-    { "source": "/profit-summary-by-user", "destination": "/api" },
-    { "source": "/channel-performance-by-user", "destination": "/api" }
+    { "source": "/(.*)", "destination": "/api" }
   ]
 }

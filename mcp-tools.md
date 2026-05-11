@@ -1,101 +1,76 @@
-# SouqMetrics MCP v1 Tools
+# SouqMetrics MCP Tools
+
+All tools require `user_id` (Supabase UID) and, except `list_workspaces`, a `business_id` from the user's workspaces.
+All tools that accept `timeframe` support: `today`, `last_7_days`, `last_30_days`, `last_90_days` (default: `last_30_days`).
+
+---
 
 ## 1. list_workspaces
-Description:
-Return all workspaces available to the authenticated SouqMetrics user.
+Return all workspaces the authenticated user has access to. Call this first to get valid `business_id` values.
 
-Inputs:
-- none
+**Inputs:** `user_id`
+**Output:** `workspaces[]` — id, name, currency
 
-Output:
-- workspaces: array of
-  - id
-  - name
-  - currency
+---
 
-Powered by:
-- /workspace-list
+## 2. get_business_summary
+Total revenue, order count, and average order value for a workspace.
 
+**Inputs:** `user_id`, `business_id`, `timeframe?`
+**Output:** `total_revenue`, `total_orders`, `average_order_value`, `timeframe`
 
-## 2. get_workspace_members
-Description:
-Return the members of a selected workspace.
+---
 
-Inputs:
-- business_id (string, required)
+## 3. get_kpi_metrics
+Full KPI snapshot: revenue, orders, AOV, ad spend, ROAS, CPA, paid revenue — plus % changes vs the prior equivalent period.
 
-Output:
-- members: array of
-  - email
-  - role
-  - joined_at
+**Inputs:** `user_id`, `business_id`, `timeframe?`
+**Output:** `current` (revenue, orders, aov, ad_spend, paid_revenue, roas, cpa), `changes` (revenue_pct, orders_pct, aov_pct, ad_spend_pct, roas_pct, cpa_pct)
 
-Powered by:
-- /workspace-members
+---
 
+## 4. get_profit_summary
+Estimated profit and margin based on the user's cost settings (COGS %, delivery %, fixed fees).
 
-## 3. get_business_summary
-Description:
-Return total revenue, total orders, and average order value for a selected workspace and timeframe.
+**Inputs:** `user_id`, `business_id`, `timeframe?`
+**Output:** `revenue`, `orders`, `estimated_profit`, `margin_pct`, `cost_breakdown` (cogs, delivery, fixed)
 
-Inputs:
-- business_id (string, required)
-- timeframe (string, optional: today, last_7_days, last_30_days)
+---
 
-Output:
-- total_revenue
-- total_orders
-- average_order_value
-- timeframe
+## 5. get_channel_breakdown
+Revenue and orders grouped into three buckets: Paid Social, Organic Social, Direct/Search.
 
-Powered by:
-- /business-summary
+**Inputs:** `user_id`, `business_id`, `timeframe?`
+**Output:** `channels` — paid_social, organic_social, direct_search (each: revenue, orders)
 
+---
 
-## 4. get_channel_performance
-Description:
-Return revenue grouped by channel for a selected workspace and timeframe.
+## 6. get_top_products
+Top-performing products by revenue.
 
-Inputs:
-- business_id (string, required)
-- timeframe (string, optional: today, last_7_days, last_30_days)
+**Inputs:** `user_id`, `business_id`, `timeframe?`, `limit?` (default 10, max 50)
+**Output:** `products[]` — product_name, revenue, orders
 
-Output:
-- channels object
-- timeframe
+---
 
-Powered by:
-- /channel-performance
+## 7. get_payment_breakdown
+Revenue and orders split by payment method: Card, COD, Whish, BNPL, Other.
 
+**Inputs:** `user_id`, `business_id`, `timeframe?`
+**Output:** `payment_methods` — card, cod, whish, bnpl, other (each: orders, revenue)
 
-## 5. get_top_products
-Description:
-Return top-performing products by revenue for a selected workspace and timeframe.
+---
 
-Inputs:
-- business_id (string, required)
-- timeframe (string, optional: today, last_7_days, last_30_days)
-- limit (number, optional)
+## 8. get_geographic_breakdown
+Top locations (country + city) by revenue with revenue share %.
 
-Output:
-- products array
-- timeframe
+**Inputs:** `user_id`, `business_id`, `timeframe?`, `limit?` (default 10, max 50)
+**Output:** `locations[]` — country, city, orders, revenue, revenue_pct
 
-Powered by:
-- /top-products
+---
 
+## 9. get_daily_trends
+Day-by-day revenue, order count, paid revenue, and ad spend.
 
-## 6. get_payment_breakdown
-Description:
-Return payment method breakdown for a selected workspace and timeframe.
-
-Inputs:
-- business_id (string, required)
-- timeframe (string, optional: today, last_7_days, last_30_days)
-
-Output:
-- payment_methods object
-- timeframe
-
-Powered by:
-- /payment-breakdown
+**Inputs:** `user_id`, `business_id`, `timeframe?`
+**Output:** `days[]` — date, revenue, orders, paid_revenue, ad_spend

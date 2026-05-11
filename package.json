@@ -2,11 +2,15 @@
   "name": "souqmetrics-mcp",
   "version": "1.0.0",
   "type": "module",
-  "main": "server.js",
+  "description": "SouqMetrics MCP server — analytics tools for ecommerce workspaces",
+  "main": "mcp-stdio.js",
+  "bin": {
+    "souqmetrics-mcp": "./mcp-stdio.js"
+  },
   "scripts": {
+    "start": "node mcp-stdio.js",
     "dev:api": "vercel dev",
-    "test:mcp": "node test-mcp.js",
-    "mcp:stdio": "node mcp-stdio.js"
+    "test:api": "node test-mcp.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.28.0",
