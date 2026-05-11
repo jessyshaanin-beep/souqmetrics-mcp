@@ -10,13 +10,15 @@ const server = new McpServer({
 
 const BASE_URL =
   process.env.SOUQMETRICS_API_URL || "https://souqmetrics-mcp.vercel.app";
-const API_KEY = process.env.MCP_API_KEY;
+const ACCESS_TOKEN = process.env.SOUQMETRICS_ACCESS_TOKEN;
 
 // ── Shared fetch helper ────────────────────────────────────────────────────────
 
 async function callApi(path) {
   const response = await fetch(`${BASE_URL}${path}`, {
-    headers: { "x-api-key": API_KEY },
+    headers: {
+      Authorization: `Bearer ${ACCESS_TOKEN}`,
+    },
   });
 
   const data = await response.json();
@@ -39,8 +41,7 @@ function errorResult(err) {
 
 // ── Shared input schemas ───────────────────────────────────────────────────────
 
-const emailAndBusiness = {
-  email: z.string().email().describe("Your SouqMetrics account email address"),
+const businessOnly = {
   business_id: z.string().describe("Workspace / business ID (from list_workspaces)"),
 };
 
@@ -59,15 +60,11 @@ server.registerTool(
     title: "List Workspaces",
     description:
       "Return all workspaces the authenticated SouqMetrics user has access to. Always call this first to get valid business_id values before calling any other tool.",
-    inputSchema: z.object({
-      email: z.string().email().describe("Your SouqMetrics account email address"),
-    }),
+    inputSchema: z.object({}),
   },
-  async ({ email }) => {
+  async () => {
     try {
-      return await callApi(
-        `/workspace-list-by-user?email=${encodeURIComponent(email)}`
-      );
+      return await callApi("/workspace-list-by-user");
     } catch (err) {
       return errorResult(err);
     }
@@ -83,16 +80,15 @@ server.registerTool(
     description:
       "Return total revenue, total orders, and average order value for a workspace over a given timeframe.",
     inputSchema: z.object({
-      ...emailAndBusiness,
+      ...businessOnly,
       ...timeframeField,
     }),
   },
-  async ({ email, business_id, timeframe = "last_30_days" }) => {
+  async ({ business_id, timeframe = "last_30_days" }) => {
     try {
       return await callApi(
         `/business-summary-by-user` +
-          `?email=${encodeURIComponent(email)}` +
-          `&business_id=${encodeURIComponent(business_id)}` +
+          `?business_id=${encodeURIComponent(business_id)}` +
           `&timeframe=${encodeURIComponent(timeframe)}`
       );
     } catch (err) {
@@ -110,16 +106,15 @@ server.registerTool(
     description:
       "Return full KPI report: revenue, orders, AOV, ad spend, ROAS, CPA, paid revenue — plus percentage changes vs the prior equivalent period. Use this for performance snapshots and trend analysis.",
     inputSchema: z.object({
-      ...emailAndBusiness,
+      ...businessOnly,
       ...timeframeField,
     }),
   },
-  async ({ email, business_id, timeframe = "last_30_days" }) => {
+  async ({ business_id, timeframe = "last_30_days" }) => {
     try {
       return await callApi(
         `/kpi-metrics-by-user` +
-          `?email=${encodeURIComponent(email)}` +
-          `&business_id=${encodeURIComponent(business_id)}` +
+          `?business_id=${encodeURIComponent(business_id)}` +
           `&timeframe=${encodeURIComponent(timeframe)}`
       );
     } catch (err) {
@@ -137,16 +132,15 @@ server.registerTool(
     description:
       "Return estimated profit, margin %, and cost breakdown (COGS, delivery, fixed costs) for a workspace. Requires the user to have configured cost settings in SouqMetrics.",
     inputSchema: z.object({
-      ...emailAndBusiness,
+      ...businessOnly,
       ...timeframeField,
     }),
   },
-  async ({ email, business_id, timeframe = "last_30_days" }) => {
+  async ({ business_id, timeframe = "last_30_days" }) => {
     try {
       return await callApi(
         `/profit-summary-by-user` +
-          `?email=${encodeURIComponent(email)}` +
-          `&business_id=${encodeURIComponent(business_id)}` +
+          `?business_id=${encodeURIComponent(business_id)}` +
           `&timeframe=${encodeURIComponent(timeframe)}`
       );
     } catch (err) {
@@ -164,16 +158,15 @@ server.registerTool(
     description:
       "Return revenue and order counts grouped into three buckets: Paid Social (Meta, TikTok, Google), Organic Social (Instagram, Facebook, TikTok organic), and Direct / Search. Use this to understand channel mix.",
     inputSchema: z.object({
-      ...emailAndBusiness,
+      ...businessOnly,
       ...timeframeField,
     }),
   },
-  async ({ email, business_id, timeframe = "last_30_days" }) => {
+  async ({ business_id, timeframe = "last_30_days" }) => {
     try {
       return await callApi(
         `/channel-breakdown-by-user` +
-          `?email=${encodeURIComponent(email)}` +
-          `&business_id=${encodeURIComponent(business_id)}` +
+          `?business_id=${encodeURIComponent(business_id)}` +
           `&timeframe=${encodeURIComponent(timeframe)}`
       );
     } catch (err) {
@@ -191,7 +184,7 @@ server.registerTool(
     description:
       "Return the top-performing products ranked by revenue for a given timeframe. Each product includes total revenue and order count.",
     inputSchema: z.object({
-      ...emailAndBusiness,
+      ...businessOnly,
       ...timeframeField,
       limit: z
         .number()
@@ -202,12 +195,11 @@ server.registerTool(
         .describe("Number of products to return. Defaults to 10."),
     }),
   },
-  async ({ email, business_id, timeframe = "last_30_days", limit = 10 }) => {
+  async ({ business_id, timeframe = "last_30_days", limit = 10 }) => {
     try {
       return await callApi(
         `/top-products-by-user` +
-          `?email=${encodeURIComponent(email)}` +
-          `&business_id=${encodeURIComponent(business_id)}` +
+          `?business_id=${encodeURIComponent(business_id)}` +
           `&timeframe=${encodeURIComponent(timeframe)}` +
           `&limit=${encodeURIComponent(limit)}`
       );
@@ -226,16 +218,15 @@ server.registerTool(
     description:
       "Return revenue and order counts grouped by payment method: Card, COD (cash on delivery), Whish, BNPL (Tabby / Tamara), and Other.",
     inputSchema: z.object({
-      ...emailAndBusiness,
+      ...businessOnly,
       ...timeframeField,
     }),
   },
-  async ({ email, business_id, timeframe = "last_30_days" }) => {
+  async ({ business_id, timeframe = "last_30_days" }) => {
     try {
       return await callApi(
         `/payment-breakdown-by-user` +
-          `?email=${encodeURIComponent(email)}` +
-          `&business_id=${encodeURIComponent(business_id)}` +
+          `?business_id=${encodeURIComponent(business_id)}` +
           `&timeframe=${encodeURIComponent(timeframe)}`
       );
     } catch (err) {
@@ -253,7 +244,7 @@ server.registerTool(
     description:
       "Return top locations (country + city) ranked by revenue. Each entry includes revenue, order count, and % share of total revenue. Useful for identifying strongest markets.",
     inputSchema: z.object({
-      ...emailAndBusiness,
+      ...businessOnly,
       ...timeframeField,
       limit: z
         .number()
@@ -264,12 +255,11 @@ server.registerTool(
         .describe("Number of locations to return. Defaults to 10."),
     }),
   },
-  async ({ email, business_id, timeframe = "last_30_days", limit = 10 }) => {
+  async ({ business_id, timeframe = "last_30_days", limit = 10 }) => {
     try {
       return await callApi(
         `/geographic-breakdown-by-user` +
-          `?email=${encodeURIComponent(email)}` +
-          `&business_id=${encodeURIComponent(business_id)}` +
+          `?business_id=${encodeURIComponent(business_id)}` +
           `&timeframe=${encodeURIComponent(timeframe)}` +
           `&limit=${encodeURIComponent(limit)}`
       );
@@ -288,16 +278,15 @@ server.registerTool(
     description:
       "Return day-by-day revenue, order count, paid revenue, and ad spend for a given timeframe. Use this to spot trends, spikes, or drops over time.",
     inputSchema: z.object({
-      ...emailAndBusiness,
+      ...businessOnly,
       ...timeframeField,
     }),
   },
-  async ({ email, business_id, timeframe = "last_30_days" }) => {
+  async ({ business_id, timeframe = "last_30_days" }) => {
     try {
       return await callApi(
         `/daily-trends-by-user` +
-          `?email=${encodeURIComponent(email)}` +
-          `&business_id=${encodeURIComponent(business_id)}` +
+          `?business_id=${encodeURIComponent(business_id)}` +
           `&timeframe=${encodeURIComponent(timeframe)}`
       );
     } catch (err) {

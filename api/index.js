@@ -1,50 +1,159 @@
 import { config } from "dotenv";
 config();
 
+import { randomUUID } from "crypto";
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import {
   getStartDateFromTimeframe,
   getPreviousStartDate,
-  verifyEmailAccess,
+  verifyUserAccess,
 } from "../lib/helpers.js";
 
 const app = express();
 app.use(express.json());
-
-// ── API key guard ──────────────────────────────────────────────────────────────
-app.use((req, res, next) => {
-  if (req.path === "/" || req.path === "/health") return next();
-
-  const qs = new URL(req.url, `http://localhost`).searchParams;
-  const apiKey = req.headers["x-api-key"] || qs.get("api_key");
-  if (!apiKey) return res.status(401).json({ ok: false, error: "Missing API key" });
-  if (apiKey !== process.env.MCP_API_KEY)
-    return res.status(403).json({ ok: false, error: "Invalid API key" });
-
-  next();
-});
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// ── Bearer token auth helper ───────────────────────────────────────────────────
+// Reads Authorization: Bearer <token>, validates against oauth_access_tokens,
+// and returns the user_id. Sends a 401 and returns null if invalid.
+
+async function verifyToken(req, res) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader?.replace("Bearer ", "").trim();
+
+  if (!token) {
+    res.status(401).json({ ok: false, error: "Missing token" });
+    return null;
+  }
+
+  const { data: tokenRow } = await supabase
+    .from("oauth_access_tokens")
+    .select("user_id, expires_at")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (!tokenRow || new Date(tokenRow.expires_at) < new Date()) {
+    res.status(401).json({ ok: false, error: "Invalid or expired token" });
+    return null;
+  }
+
+  return tokenRow.user_id;
+}
+
 // ── Health ─────────────────────────────────────────────────────────────────────
 app.get("/", (_req, res) => res.send("SouqMetrics MCP API is running."));
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+// ── OAuth: Authorize ───────────────────────────────────────────────────────────
+// Returns the URL the user should visit to grant access in the SouqMetrics app.
+
+app.get("/oauth/authorize", (req, res) => {
+  const { client_id, redirect_uri, state } = req.query;
+
+  if (!redirect_uri || !redirect_uri.startsWith("https://")) {
+    return res.status(400).json({
+      ok: false,
+      error: "redirect_uri must start with https://",
+    });
+  }
+
+  const params = new URLSearchParams({
+    ...(client_id && { client_id }),
+    redirect_uri,
+    ...(state && { state }),
+  });
+
+  return res.json({
+    ok: true,
+    authorize_url: `https://app.souqmetrics.co/oauth/authorize?${params}`,
+  });
+});
+
+// ── OAuth: Token Exchange ──────────────────────────────────────────────────────
+// Exchanges an authorization code for a long-lived access token.
+
+app.post("/oauth/token", async (req, res) => {
+  try {
+    const { code, grant_type } = req.body;
+
+    if (grant_type !== "authorization_code") {
+      return res.status(400).json({
+        ok: false,
+        error: "Unsupported grant_type. Expected authorization_code.",
+      });
+    }
+
+    if (!code) {
+      return res.status(400).json({ ok: false, error: "Missing code" });
+    }
+
+    // Look up the code — must exist, be unused, and not expired
+    const { data: codeRow, error: codeErr } = await supabase
+      .from("oauth_codes")
+      .select("id, user_id, redirect_uri, expires_at, used_at")
+      .eq("code", code)
+      .maybeSingle();
+
+    if (codeErr) {
+      return res.status(500).json({ ok: false, error: codeErr.message });
+    }
+
+    if (!codeRow) {
+      return res.status(400).json({ ok: false, error: "Invalid code" });
+    }
+
+    if (codeRow.used_at) {
+      return res.status(400).json({ ok: false, error: "Code already used" });
+    }
+
+    if (new Date(codeRow.expires_at) < new Date()) {
+      return res.status(400).json({ ok: false, error: "Code expired" });
+    }
+
+    // Mark code as used
+    await supabase
+      .from("oauth_codes")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", codeRow.id);
+
+    // Generate access token — valid for 90 days
+    const token = randomUUID();
+    const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { error: insertErr } = await supabase
+      .from("oauth_access_tokens")
+      .insert({ token, user_id: codeRow.user_id, expires_at: expiresAt });
+
+    if (insertErr) {
+      return res.status(500).json({ ok: false, error: insertErr.message });
+    }
+
+    return res.json({
+      access_token: token,
+      token_type: "Bearer",
+      expires_in: 7776000, // 90 days in seconds
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 // ── Workspaces ─────────────────────────────────────────────────────────────────
 
 app.get("/workspace-list-by-user", async (req, res) => {
   try {
-    const { email } = req.query;
-    if (!email) return res.status(400).json({ ok: false, error: "Missing email" });
+    const user_id = await verifyToken(req, res);
+    if (!user_id) return;
 
     const { data: memberships, error: membershipsError } = await supabase
       .from("workspace_members")
       .select("business_id")
-      .eq("email", email);
+      .eq("user_id", user_id);
 
     if (membershipsError)
       return res.status(500).json({ ok: false, error: membershipsError.message });
@@ -77,12 +186,14 @@ app.get("/workspace-list-by-user", async (req, res) => {
 
 app.get("/business-summary-by-user", async (req, res) => {
   try {
-    const { email, business_id, timeframe = "last_30_days" } = req.query;
+    const user_id = await verifyToken(req, res);
+    if (!user_id) return;
 
-    if (!email || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
+    const { business_id, timeframe = "last_30_days" } = req.query;
+    if (!business_id)
+      return res.status(400).json({ ok: false, error: "Missing business_id" });
 
-    const access = await verifyEmailAccess(supabase, email, business_id);
+    const access = await verifyUserAccess(supabase, user_id, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -111,22 +222,23 @@ app.get("/business-summary-by-user", async (req, res) => {
   }
 });
 
-// ── KPI Metrics (with comparison period) ──────────────────────────────────────
+// ── KPI Metrics ────────────────────────────────────────────────────────────────
 
 app.get("/kpi-metrics-by-user", async (req, res) => {
   try {
-    const { email, business_id, timeframe = "last_30_days" } = req.query;
+    const user_id = await verifyToken(req, res);
+    if (!user_id) return;
 
-    if (!email || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
+    const { business_id, timeframe = "last_30_days" } = req.query;
+    if (!business_id)
+      return res.status(400).json({ ok: false, error: "Missing business_id" });
 
-    const access = await verifyEmailAccess(supabase, email, business_id);
+    const access = await verifyUserAccess(supabase, user_id, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
     const { prevStart, prevEnd } = getPreviousStartDate(startDate);
 
-    // Current period orders
     const { data: currentOrders, error: currErr } = await supabase
       .from("orders")
       .select("order_total, channel")
@@ -135,7 +247,6 @@ app.get("/kpi-metrics-by-user", async (req, res) => {
 
     if (currErr) return res.status(500).json({ ok: false, error: currErr.message });
 
-    // Previous period orders
     const { data: prevOrders, error: prevErr } = await supabase
       .from("orders")
       .select("order_total")
@@ -145,7 +256,6 @@ app.get("/kpi-metrics-by-user", async (req, res) => {
 
     if (prevErr) return res.status(500).json({ ok: false, error: prevErr.message });
 
-    // Current period ad spend
     const spendStart = startDate.slice(0, 10);
     const { data: spendRows, error: spendErr } = await supabase
       .from("ad_spend_daily")
@@ -155,7 +265,6 @@ app.get("/kpi-metrics-by-user", async (req, res) => {
 
     if (spendErr) return res.status(500).json({ ok: false, error: spendErr.message });
 
-    // Previous period ad spend
     const { data: prevSpendRows } = await supabase
       .from("ad_spend_daily")
       .select("spend")
@@ -189,15 +298,7 @@ app.get("/kpi-metrics-by-user", async (req, res) => {
     return res.json({
       ok: true,
       timeframe,
-      current: {
-        revenue,
-        orders,
-        aov,
-        ad_spend: adSpend,
-        paid_revenue: paidRevenue,
-        roas,
-        cpa,
-      },
+      current: { revenue, orders, aov, ad_spend: adSpend, paid_revenue: paidRevenue, roas, cpa },
       changes: {
         revenue_pct: pctChange(revenue, prevRevenue),
         orders_pct: pctChange(orders, prevOrderCount),
@@ -216,12 +317,14 @@ app.get("/kpi-metrics-by-user", async (req, res) => {
 
 app.get("/channel-breakdown-by-user", async (req, res) => {
   try {
-    const { email, business_id, timeframe = "last_30_days" } = req.query;
+    const user_id = await verifyToken(req, res);
+    if (!user_id) return;
 
-    if (!email || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
+    const { business_id, timeframe = "last_30_days" } = req.query;
+    if (!business_id)
+      return res.status(400).json({ ok: false, error: "Missing business_id" });
 
-    const access = await verifyEmailAccess(supabase, email, business_id);
+    const access = await verifyUserAccess(supabase, user_id, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -248,37 +351,20 @@ app.get("/channel-breakdown-by-user", async (req, res) => {
       const sourcePlatform = (order.source_platform || "").toLowerCase();
 
       const isPaidSocial =
-        medium.includes("paid") ||
-        medium.includes("cpc") ||
-        medium.includes("ppc") ||
-        channel === "meta" ||
-        channel === "google" ||
-        channel === "tiktok" ||
+        medium.includes("paid") || medium.includes("cpc") || medium.includes("ppc") ||
+        channel === "meta" || channel === "google" || channel === "tiktok" ||
         channel.includes("paid") ||
-        sourcePlatform.includes("meta") ||
-        sourcePlatform.includes("facebook ads") ||
-        sourcePlatform.includes("instagram ads") ||
-        sourcePlatform.includes("tiktok ads");
+        sourcePlatform.includes("meta") || sourcePlatform.includes("facebook ads") ||
+        sourcePlatform.includes("instagram ads") || sourcePlatform.includes("tiktok ads");
 
       const isOrganicSocial =
         !isPaidSocial &&
-        (medium === "social" ||
-          source === "instagram" ||
-          source === "ig" ||
-          source === "facebook" ||
-          source === "tiktok" ||
-          source.includes("social") ||
-          channel.includes("organic social") ||
-          sourcePlatform === "instagram" ||
-          sourcePlatform === "facebook" ||
-          sourcePlatform === "tiktok");
+        (medium === "social" || source === "instagram" || source === "ig" ||
+          source === "facebook" || source === "tiktok" || source.includes("social") ||
+          channel.includes("organic social") || sourcePlatform === "instagram" ||
+          sourcePlatform === "facebook" || sourcePlatform === "tiktok");
 
-      const bucket = isPaidSocial
-        ? "paid_social"
-        : isOrganicSocial
-        ? "organic_social"
-        : "direct_search";
-
+      const bucket = isPaidSocial ? "paid_social" : isOrganicSocial ? "organic_social" : "direct_search";
       channels[bucket].revenue += revenue;
       channels[bucket].orders += 1;
     }
@@ -293,13 +379,15 @@ app.get("/channel-breakdown-by-user", async (req, res) => {
 
 app.get("/top-products-by-user", async (req, res) => {
   try {
-    const { email, business_id, timeframe = "last_30_days" } = req.query;
+    const user_id = await verifyToken(req, res);
+    if (!user_id) return;
+
+    const { business_id, timeframe = "last_30_days" } = req.query;
     const limit = Number(req.query.limit || 10);
+    if (!business_id)
+      return res.status(400).json({ ok: false, error: "Missing business_id" });
 
-    if (!email || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
-
-    const access = await verifyEmailAccess(supabase, email, business_id);
+    const access = await verifyUserAccess(supabase, user_id, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -345,12 +433,14 @@ app.get("/top-products-by-user", async (req, res) => {
 
 app.get("/payment-breakdown-by-user", async (req, res) => {
   try {
-    const { email, business_id, timeframe = "last_30_days" } = req.query;
+    const user_id = await verifyToken(req, res);
+    if (!user_id) return;
 
-    if (!email || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
+    const { business_id, timeframe = "last_30_days" } = req.query;
+    if (!business_id)
+      return res.status(400).json({ ok: false, error: "Missing business_id" });
 
-    const access = await verifyEmailAccess(supabase, email, business_id);
+    const access = await verifyUserAccess(supabase, user_id, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -379,12 +469,7 @@ app.get("/payment-breakdown-by-user", async (req, res) => {
       if (method === "card" || method.includes("card")) bucket = "card";
       else if (method === "cod") bucket = "cod";
       else if (method === "whish") bucket = "whish";
-      else if (
-        method === "bnpl" ||
-        method.includes("tabby") ||
-        method.includes("tamara")
-      )
-        bucket = "bnpl";
+      else if (method === "bnpl" || method.includes("tabby") || method.includes("tamara")) bucket = "bnpl";
 
       breakdown[bucket].orders += 1;
       breakdown[bucket].revenue += revenue;
@@ -400,12 +485,14 @@ app.get("/payment-breakdown-by-user", async (req, res) => {
 
 app.get("/profit-summary-by-user", async (req, res) => {
   try {
-    const { email, business_id, timeframe = "last_30_days" } = req.query;
+    const user_id = await verifyToken(req, res);
+    if (!user_id) return;
 
-    if (!email || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
+    const { business_id, timeframe = "last_30_days" } = req.query;
+    if (!business_id)
+      return res.status(400).json({ ok: false, error: "Missing business_id" });
 
-    const access = await verifyEmailAccess(supabase, email, business_id);
+    const access = await verifyUserAccess(supabase, user_id, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -431,8 +518,7 @@ app.get("/profit-summary-by-user", async (req, res) => {
 
     const cogsCost = revenue * ((costs.cogs_pct || 0) / 100);
     const deliveryCost = revenue * ((costs.delivery_pct || 0) / 100);
-    const fixedCosts =
-      Number(costs.monthly_platform_fee || 0) + Number(costs.monthly_agency_fee || 0);
+    const fixedCosts = Number(costs.monthly_platform_fee || 0) + Number(costs.monthly_agency_fee || 0);
 
     const estimatedProfit = revenue - cogsCost - deliveryCost - fixedCosts;
     const marginPct = revenue > 0 ? (estimatedProfit / revenue) * 100 : 0;
@@ -459,13 +545,15 @@ app.get("/profit-summary-by-user", async (req, res) => {
 
 app.get("/geographic-breakdown-by-user", async (req, res) => {
   try {
-    const { email, business_id, timeframe = "last_30_days" } = req.query;
+    const user_id = await verifyToken(req, res);
+    if (!user_id) return;
+
+    const { business_id, timeframe = "last_30_days" } = req.query;
     const limit = Number(req.query.limit || 10);
+    if (!business_id)
+      return res.status(400).json({ ok: false, error: "Missing business_id" });
 
-    if (!email || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
-
-    const access = await verifyEmailAccess(supabase, email, business_id);
+    const access = await verifyUserAccess(supabase, user_id, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -511,13 +599,9 @@ function normalizeCity(city) {
   if (!city) return "Unknown";
   const c = city.toLowerCase().trim();
   if (
-    c.includes("beirut") ||
-    c.includes("beyrouth") ||
-    c.includes("bayrut") ||
-    c.includes("beiru") ||
-    c.includes("بيروت")
-  )
-    return "Beirut";
+    c.includes("beirut") || c.includes("beyrouth") ||
+    c.includes("bayrut") || c.includes("beiru") || c.includes("بيروت")
+  ) return "Beirut";
   return city.trim();
 }
 
@@ -525,12 +609,14 @@ function normalizeCity(city) {
 
 app.get("/daily-trends-by-user", async (req, res) => {
   try {
-    const { email, business_id, timeframe = "last_30_days" } = req.query;
+    const user_id = await verifyToken(req, res);
+    if (!user_id) return;
 
-    if (!email || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
+    const { business_id, timeframe = "last_30_days" } = req.query;
+    if (!business_id)
+      return res.status(400).json({ ok: false, error: "Missing business_id" });
 
-    const access = await verifyEmailAccess(supabase, email, business_id);
+    const access = await verifyUserAccess(supabase, user_id, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -563,9 +649,7 @@ app.get("/daily-trends-by-user", async (req, res) => {
       const amount = Number(o.order_total || 0);
       byDay[day].revenue += amount;
       byDay[day].orders += 1;
-      if (PAID_CHANNELS.includes((o.channel || "").toLowerCase())) {
-        byDay[day].paid_revenue += amount;
-      }
+      if (PAID_CHANNELS.includes((o.channel || "").toLowerCase())) byDay[day].paid_revenue += amount;
     }
 
     for (const s of spendResult.data || []) {

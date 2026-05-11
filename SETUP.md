@@ -1,5 +1,35 @@
 # SouqMetrics MCP — Setup Guide
 
+## Authentication
+
+SouqMetrics uses OAuth 2.0 to authenticate Claude. You need an access token before using any tool.
+
+### Get an access token
+
+1. Visit **[https://app.souqmetrics.co/oauth/authorize](https://app.souqmetrics.co/oauth/authorize)** (or follow the link Claude provides)
+2. Log in with your SouqMetrics account
+3. Click **Allow Access** on the consent screen
+4. Copy the `code` from the redirect URL and exchange it for a token:
+
+```bash
+curl -X POST https://souqmetrics-mcp.vercel.app/oauth/token \
+  -H "Content-Type: application/json" \
+  -d '{"grant_type":"authorization_code","code":"<code>"}'
+```
+
+Response:
+```json
+{
+  "access_token": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "token_type": "Bearer",
+  "expires_in": 7776000
+}
+```
+
+Tokens are valid for **90 days**.
+
+---
+
 ## Add to Claude Desktop
 
 Open `~/Library/Application Support/Claude/claude_desktop_config.json` and add:
@@ -9,9 +39,10 @@ Open `~/Library/Application Support/Claude/claude_desktop_config.json` and add:
   "mcpServers": {
     "souqmetrics": {
       "command": "node",
-      "args": ["/Users/jessyshaanin/Documents/souqmetrics-mcp/mcp-stdio.js"],
+      "args": ["/path/to/souqmetrics-mcp/mcp-stdio.js"],
       "env": {
-        "MCP_API_KEY": "souqmetrics-secret-123"
+        "SOUQMETRICS_ACCESS_TOKEN": "your-access-token-here",
+        "SOUQMETRICS_API_URL": "https://souqmetrics-mcp.vercel.app"
       }
     }
   }
@@ -20,19 +51,26 @@ Open `~/Library/Application Support/Claude/claude_desktop_config.json` and add:
 
 Restart Claude Desktop. You'll see the 9 SouqMetrics tools in the tool picker.
 
+---
+
 ## Add to Claude Code (CLI)
 
 ```bash
-claude mcp add souqmetrics node /Users/jessyshaanin/Documents/souqmetrics-mcp/mcp-stdio.js --env MCP_API_KEY=souqmetrics-secret-123
+claude mcp add souqmetrics node /path/to/souqmetrics-mcp/mcp-stdio.js \
+  --env SOUQMETRICS_ACCESS_TOKEN=your-access-token-here \
+  --env SOUQMETRICS_API_URL=https://souqmetrics-mcp.vercel.app
 ```
 
-## Add to Claude.ai Connectors
+---
 
-Point the remote connector to:
+## Add to Claude.ai as a Remote Connector
+
+Point the remote connector at:
 ```
 https://souqmetrics-mcp.vercel.app
 ```
-with header `x-api-key: souqmetrics-secret-123`
+
+Claude.ai will initiate the OAuth flow automatically using the `/oauth/authorize` and `/oauth/token` endpoints.
 
 ---
 
@@ -40,7 +78,7 @@ with header `x-api-key: souqmetrics-secret-123`
 
 | Tool | What it does |
 |---|---|
-| `list_workspaces` | Get all workspaces for a user — run this first |
+| `list_workspaces` | Get all workspaces you have access to — call this first |
 | `get_business_summary` | Revenue, orders, AOV |
 | `get_kpi_metrics` | Full KPI snapshot with period-over-period % changes |
 | `get_profit_summary` | Estimated profit, margin, cost breakdown |
@@ -50,7 +88,9 @@ with header `x-api-key: souqmetrics-secret-123`
 | `get_geographic_breakdown` | Top cities and countries by revenue |
 | `get_daily_trends` | Day-by-day revenue and ad spend |
 
-All tools (except `list_workspaces`) accept `timeframe`: `today`, `last_7_days`, `last_30_days`, `last_90_days`.
+All tools (except `list_workspaces`) accept an optional `timeframe`: `today`, `last_7_days`, `last_30_days`, `last_90_days` (default: `last_30_days`).
+
+---
 
 ## Example Conversation
 
