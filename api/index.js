@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   getStartDateFromTimeframe,
   getPreviousStartDate,
-  verifyUserAccess,
+  verifyEmailAccess,
 } from "../lib/helpers.js";
 
 const app = express();
@@ -34,13 +34,13 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.get("/workspace-list-by-user", async (req, res) => {
   try {
-    const { user_id } = req.query;
-    if (!user_id) return res.status(400).json({ ok: false, error: "Missing user_id" });
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ ok: false, error: "Missing email" });
 
     const { data: memberships, error: membershipsError } = await supabase
       .from("workspace_members")
       .select("business_id")
-      .eq("user_id", user_id);
+      .eq("email", email);
 
     if (membershipsError)
       return res.status(500).json({ ok: false, error: membershipsError.message });
@@ -73,12 +73,12 @@ app.get("/workspace-list-by-user", async (req, res) => {
 
 app.get("/business-summary-by-user", async (req, res) => {
   try {
-    const { user_id, business_id, timeframe = "last_30_days" } = req.query;
+    const { email, business_id, timeframe = "last_30_days" } = req.query;
 
-    if (!user_id || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing user_id or business_id" });
+    if (!email || !business_id)
+      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
 
-    const access = await verifyUserAccess(supabase, user_id, business_id);
+    const access = await verifyEmailAccess(supabase, email, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -111,12 +111,12 @@ app.get("/business-summary-by-user", async (req, res) => {
 
 app.get("/kpi-metrics-by-user", async (req, res) => {
   try {
-    const { user_id, business_id, timeframe = "last_30_days" } = req.query;
+    const { email, business_id, timeframe = "last_30_days" } = req.query;
 
-    if (!user_id || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing user_id or business_id" });
+    if (!email || !business_id)
+      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
 
-    const access = await verifyUserAccess(supabase, user_id, business_id);
+    const access = await verifyEmailAccess(supabase, email, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -212,12 +212,12 @@ app.get("/kpi-metrics-by-user", async (req, res) => {
 
 app.get("/channel-breakdown-by-user", async (req, res) => {
   try {
-    const { user_id, business_id, timeframe = "last_30_days" } = req.query;
+    const { email, business_id, timeframe = "last_30_days" } = req.query;
 
-    if (!user_id || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing user_id or business_id" });
+    if (!email || !business_id)
+      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
 
-    const access = await verifyUserAccess(supabase, user_id, business_id);
+    const access = await verifyEmailAccess(supabase, email, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -289,13 +289,13 @@ app.get("/channel-breakdown-by-user", async (req, res) => {
 
 app.get("/top-products-by-user", async (req, res) => {
   try {
-    const { user_id, business_id, timeframe = "last_30_days" } = req.query;
+    const { email, business_id, timeframe = "last_30_days" } = req.query;
     const limit = Number(req.query.limit || 10);
 
-    if (!user_id || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing user_id or business_id" });
+    if (!email || !business_id)
+      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
 
-    const access = await verifyUserAccess(supabase, user_id, business_id);
+    const access = await verifyEmailAccess(supabase, email, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -341,12 +341,12 @@ app.get("/top-products-by-user", async (req, res) => {
 
 app.get("/payment-breakdown-by-user", async (req, res) => {
   try {
-    const { user_id, business_id, timeframe = "last_30_days" } = req.query;
+    const { email, business_id, timeframe = "last_30_days" } = req.query;
 
-    if (!user_id || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing user_id or business_id" });
+    if (!email || !business_id)
+      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
 
-    const access = await verifyUserAccess(supabase, user_id, business_id);
+    const access = await verifyEmailAccess(supabase, email, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -396,12 +396,12 @@ app.get("/payment-breakdown-by-user", async (req, res) => {
 
 app.get("/profit-summary-by-user", async (req, res) => {
   try {
-    const { user_id, business_id, timeframe = "last_30_days" } = req.query;
+    const { email, business_id, timeframe = "last_30_days" } = req.query;
 
-    if (!user_id || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing user_id or business_id" });
+    if (!email || !business_id)
+      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
 
-    const access = await verifyUserAccess(supabase, user_id, business_id);
+    const access = await verifyEmailAccess(supabase, email, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -455,13 +455,13 @@ app.get("/profit-summary-by-user", async (req, res) => {
 
 app.get("/geographic-breakdown-by-user", async (req, res) => {
   try {
-    const { user_id, business_id, timeframe = "last_30_days" } = req.query;
+    const { email, business_id, timeframe = "last_30_days" } = req.query;
     const limit = Number(req.query.limit || 10);
 
-    if (!user_id || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing user_id or business_id" });
+    if (!email || !business_id)
+      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
 
-    const access = await verifyUserAccess(supabase, user_id, business_id);
+    const access = await verifyEmailAccess(supabase, email, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
@@ -521,12 +521,12 @@ function normalizeCity(city) {
 
 app.get("/daily-trends-by-user", async (req, res) => {
   try {
-    const { user_id, business_id, timeframe = "last_30_days" } = req.query;
+    const { email, business_id, timeframe = "last_30_days" } = req.query;
 
-    if (!user_id || !business_id)
-      return res.status(400).json({ ok: false, error: "Missing user_id or business_id" });
+    if (!email || !business_id)
+      return res.status(400).json({ ok: false, error: "Missing email or business_id" });
 
-    const access = await verifyUserAccess(supabase, user_id, business_id);
+    const access = await verifyEmailAccess(supabase, email, business_id);
     if (!access.ok) return res.status(403).json({ ok: false, error: access.error });
 
     const startDate = getStartDateFromTimeframe(timeframe);
