@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-const BASE_URL = "https://souqmetrics-mcp.vercel.app";
+const BASE_URL = "https://mcp.souqmetrics.co";
 const API_KEY = process.env.MCP_API_KEY;
 
 async function testListWorkspaces() {

@@ -12,7 +12,7 @@ SouqMetrics uses OAuth 2.0 to authenticate Claude. You need an access token befo
 4. Copy the `code` from the redirect URL and exchange it for a token:
 
 ```bash
-curl -X POST https://souqmetrics-mcp.vercel.app/oauth/token \
+curl -X POST https://mcp.souqmetrics.co/oauth/token \
   -H "Content-Type: application/json" \
   -d '{"grant_type":"authorization_code","code":"<code>"}'
 ```
@@ -42,7 +42,7 @@ Open `~/Library/Application Support/Claude/claude_desktop_config.json` and add:
       "args": ["/path/to/souqmetrics-mcp/mcp-stdio.js"],
       "env": {
         "SOUQMETRICS_ACCESS_TOKEN": "your-access-token-here",
-        "SOUQMETRICS_API_URL": "https://souqmetrics-mcp.vercel.app"
+        "SOUQMETRICS_API_URL": "https://mcp.souqmetrics.co"
       }
     }
   }
@@ -58,7 +58,7 @@ Restart Claude Desktop. You'll see the 9 SouqMetrics tools in the tool picker.
 ```bash
 claude mcp add souqmetrics node /path/to/souqmetrics-mcp/mcp-stdio.js \
   --env SOUQMETRICS_ACCESS_TOKEN=your-access-token-here \
-  --env SOUQMETRICS_API_URL=https://souqmetrics-mcp.vercel.app
+  --env SOUQMETRICS_API_URL=https://mcp.souqmetrics.co
 ```
 
 ---
@@ -67,7 +67,7 @@ claude mcp add souqmetrics node /path/to/souqmetrics-mcp/mcp-stdio.js \
 
 Point the remote connector at:
 ```
-https://souqmetrics-mcp.vercel.app
+https://mcp.souqmetrics.co
 ```
 
 Claude.ai will initiate the OAuth flow automatically using the `/oauth/authorize` and `/oauth/token` endpoints.

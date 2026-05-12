@@ -9,7 +9,7 @@ const server = new McpServer({
 });
 
 const BASE_URL =
-  process.env.SOUQMETRICS_API_URL || "https://souqmetrics-mcp.vercel.app";
+  process.env.SOUQMETRICS_API_URL || "https://mcp.souqmetrics.co";
 const ACCESS_TOKEN = process.env.SOUQMETRICS_ACCESS_TOKEN;
 
 // ── Shared fetch helper ────────────────────────────────────────────────────────
