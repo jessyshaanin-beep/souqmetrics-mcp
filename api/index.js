@@ -21,9 +21,9 @@ app.use((_req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  if (_req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
-app.options("*", (_req, res) => res.sendStatus(204));
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
