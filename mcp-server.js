@@ -60,6 +60,7 @@ server.registerTool(
     title: "List Workspaces",
     description:
       "Return all workspaces the authenticated SouqMetrics user has access to. Always call this first to get valid business_id values before calling any other tool.",
+    annotations: { readOnlyHint: true },
     inputSchema: z.object({}),
   },
   async () => {
@@ -79,6 +80,7 @@ server.registerTool(
     title: "Get Business Summary",
     description:
       "Return total revenue, total orders, and average order value for a workspace over a given timeframe.",
+    annotations: { readOnlyHint: true },
     inputSchema: z.object({
       ...businessOnly,
       ...timeframeField,
@@ -105,6 +107,7 @@ server.registerTool(
     title: "Get KPI Metrics",
     description:
       "Return full KPI report: revenue, orders, AOV, ad spend, ROAS, CPA, paid revenue — plus percentage changes vs the prior equivalent period. Use this for performance snapshots and trend analysis.",
+    annotations: { readOnlyHint: true },
     inputSchema: z.object({
       ...businessOnly,
       ...timeframeField,
@@ -131,6 +134,7 @@ server.registerTool(
     title: "Get Profit Summary",
     description:
       "Return estimated profit, margin %, and cost breakdown (COGS, delivery, fixed costs) for a workspace. Requires the user to have configured cost settings in SouqMetrics.",
+    annotations: { readOnlyHint: true },
     inputSchema: z.object({
       ...businessOnly,
       ...timeframeField,
@@ -157,6 +161,7 @@ server.registerTool(
     title: "Get Channel Breakdown",
     description:
       "Return revenue and order counts grouped into three buckets: Paid Social (Meta, TikTok, Google), Organic Social (Instagram, Facebook, TikTok organic), and Direct / Search. Use this to understand channel mix.",
+    annotations: { readOnlyHint: true },
     inputSchema: z.object({
       ...businessOnly,
       ...timeframeField,
@@ -183,6 +188,7 @@ server.registerTool(
     title: "Get Top Products",
     description:
       "Return the top-performing products ranked by revenue for a given timeframe. Each product includes total revenue and order count.",
+    annotations: { readOnlyHint: true },
     inputSchema: z.object({
       ...businessOnly,
       ...timeframeField,
@@ -217,6 +223,7 @@ server.registerTool(
     title: "Get Payment Breakdown",
     description:
       "Return revenue and order counts grouped by payment method: Card, COD (cash on delivery), Whish, BNPL (Tabby / Tamara), and Other.",
+    annotations: { readOnlyHint: true },
     inputSchema: z.object({
       ...businessOnly,
       ...timeframeField,
@@ -243,6 +250,7 @@ server.registerTool(
     title: "Get Geographic Breakdown",
     description:
       "Return top locations (country + city) ranked by revenue. Each entry includes revenue, order count, and % share of total revenue. Useful for identifying strongest markets.",
+    annotations: { readOnlyHint: true },
     inputSchema: z.object({
       ...businessOnly,
       ...timeframeField,
@@ -277,6 +285,7 @@ server.registerTool(
     title: "Get Daily Trends",
     description:
       "Return day-by-day revenue, order count, paid revenue, and ad spend for a given timeframe. Use this to spot trends, spikes, or drops over time.",
+    annotations: { readOnlyHint: true },
     inputSchema: z.object({
       ...businessOnly,
       ...timeframeField,
