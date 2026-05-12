@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod/v3";
 import {
   getStartDateFromTimeframe,
@@ -373,11 +373,9 @@ async function queryDailyTrends(userId, businessId, timeframe) {
   };
 }
 
-// ── MCP over SSE ───────────────────────────────────────────────────────────────
+// ── MCP over Streamable HTTP ───────────────────────────────────────────────────
 // Builds a fresh McpServer bound to a validated userId.
-// Used for SSE connections from MCP Inspector and compatible clients.
-
-const sseTransports = new Map(); // sessionId → SSEServerTransport
+// Used for Streamable HTTP connections (stateless — one transport per request).
 
 const businessOnly = {
   business_id: z.string().describe("Workspace / business ID (from list_workspaces)"),
@@ -504,6 +502,7 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => {
     issuer: "https://mcp.souqmetrics.co",
     authorization_endpoint: "https://app.souqmetrics.co/oauth/authorize",
     token_endpoint: "https://mcp.souqmetrics.co/oauth/token",
+    mcp_endpoint: "https://mcp.souqmetrics.co/mcp",
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code"],
     code_challenge_methods_supported: ["S256"],
@@ -562,31 +561,29 @@ app.post("/oauth/token", async (req, res) => {
   }
 });
 
-// ── SSE: establish connection ──────────────────────────────────────────────────
-app.get("/sse", async (req, res) => {
+// ── MCP: Streamable HTTP endpoint ─────────────────────────────────────────────
+// Single endpoint for all MCP communication. Stateless — a fresh transport and
+// McpServer instance is created per request, so this works on Vercel serverless.
+
+app.post("/mcp", async (req, res) => {
   const token = req.headers["authorization"]?.replace("Bearer ", "").trim();
   const userId = await resolveToken(token);
   if (!userId) {
-    return res.status(401).json({ ok: false, error: token ? "Invalid or expired token" : "Missing Authorization header" });
+    return res.status(401).json({
+      ok: false,
+      error: token ? "Invalid or expired token" : "Missing Authorization header",
+    });
   }
 
   const mcpServer = buildMcpServer(userId);
-  const transport = new SSEServerTransport("/messages", res);
-  sseTransports.set(transport.sessionId, transport);
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined, // stateless — no cross-request session state
+  });
 
-  res.on("close", () => sseTransports.delete(transport.sessionId));
+  res.on("finish", () => transport.close());
 
   await mcpServer.connect(transport);
-});
-
-// ── SSE: receive client messages ───────────────────────────────────────────────
-app.post("/messages", async (req, res) => {
-  const sessionId = req.query.sessionId;
-  const transport = sseTransports.get(sessionId);
-  if (!transport) {
-    return res.status(400).json({ error: "No active SSE session found for this sessionId" });
-  }
-  await transport.handlePostMessage(req, res);
+  await transport.handleRequest(req, res, req.body);
 });
 
 // ── REST: Workspaces ───────────────────────────────────────────────────────────
