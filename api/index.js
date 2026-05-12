@@ -49,6 +49,24 @@ async function verifyToken(req, res) {
 app.get("/", (_req, res) => res.send("SouqMetrics MCP API is running."));
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
+// ── OAuth metadata (RFC 8414) ──────────────────────────────────────────────────
+app.get("/.well-known/oauth-authorization-server", (_req, res) => {
+  res.json({
+    issuer: "https://mcp.souqmetrics.co",
+    authorization_endpoint: "https://app.souqmetrics.co/oauth/authorize",
+    token_endpoint: "https://mcp.souqmetrics.co/oauth/token",
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code"],
+    code_challenge_methods_supported: ["S256"],
+    scopes_supported: ["read"],
+    token_endpoint_auth_methods_supported: ["none"],
+  });
+});
+
+app.get("/.well-known/openid-configuration", (_req, res) => {
+  res.redirect("/.well-known/oauth-authorization-server");
+});
+
 // ── OAuth: Authorize ───────────────────────────────────────────────────────────
 // Returns the URL the user should visit to grant access in the SouqMetrics app.
 
