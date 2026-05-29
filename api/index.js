@@ -500,7 +500,7 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 app.get("/.well-known/oauth-authorization-server", (_req, res) => {
   res.json({
     issuer: "https://mcp.souqmetrics.co",
-    authorization_endpoint: "https://app.souqmetrics.co/oauth/authorize",
+    authorization_endpoint: "https://mcp.souqmetrics.co/oauth/authorize",
     token_endpoint: "https://mcp.souqmetrics.co/oauth/token",
     mcp_endpoint: "https://mcp.souqmetrics.co/mcp",
     response_types_supported: ["code"],
@@ -517,16 +517,19 @@ app.get("/.well-known/openid-configuration", (_req, res) => {
 
 // ── OAuth: Authorize redirect ──────────────────────────────────────────────────
 app.get("/oauth/authorize", (req, res) => {
-  const { client_id, redirect_uri, state } = req.query;
+  const { client_id, redirect_uri, state, code_challenge, code_challenge_method, response_type, scope } = req.query;
   if (!redirect_uri || !redirect_uri.startsWith("https://")) {
     return res.status(400).json({ ok: false, error: "redirect_uri must start with https://" });
   }
-  const params = new URLSearchParams({
-    ...(client_id && { client_id }),
-    redirect_uri,
-    ...(state && { state }),
-  });
-  return res.json({ ok: true, authorize_url: `https://app.souqmetrics.co/oauth/authorize?${params}` });
+  const params = new URLSearchParams();
+  if (client_id) params.set("client_id", client_id);
+  params.set("redirect_uri", redirect_uri);
+  if (state) params.set("state", state);
+  if (code_challenge) params.set("code_challenge", code_challenge);
+  if (code_challenge_method) params.set("code_challenge_method", code_challenge_method);
+  if (response_type) params.set("response_type", response_type);
+  if (scope) params.set("scope", scope);
+  return res.redirect(302, `https://app.souqmetrics.co/oauth/authorize?${params.toString()}`);
 });
 
 // ── OAuth: Token exchange ──────────────────────────────────────────────────────
