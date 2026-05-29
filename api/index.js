@@ -508,6 +508,16 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => {
     code_challenge_methods_supported: ["S256"],
     scopes_supported: ["read"],
     token_endpoint_auth_methods_supported: ["none"],
+    token_endpoint_auth_signing_alg_values_supported: ["RS256"],
+    require_pushed_authorization_requests: false,
+    client_registration_types_supported: ["manual"],
+  });
+});
+
+app.post("/oauth/register", (_req, res) => {
+  res.status(400).json({
+    error: "invalid_client_metadata",
+    error_description: "Dynamic client registration is not supported. Please use client_id: claude-ai-client",
   });
 });
 
