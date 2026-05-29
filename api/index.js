@@ -545,32 +545,51 @@ app.get("/oauth/authorize", (req, res) => {
 // ── OAuth: Token exchange ──────────────────────────────────────────────────────
 app.post("/oauth/token", async (req, res) => {
   try {
-    const { code, grant_type } = req.body;
+    const { code, grant_type, redirect_uri, client_id, code_verifier } = req.body;
+
     if (grant_type !== "authorization_code") {
-      return res.status(400).json({ ok: false, error: "Unsupported grant_type. Expected authorization_code." });
+      return res.status(400).json({ error: "unsupported_grant_type" });
     }
-    if (!code) return res.status(400).json({ ok: false, error: "Missing code" });
+    if (!code) return res.status(400).json({ error: "invalid_request", error_description: "Missing code" });
 
     const { data: codeRow, error: codeErr } = await supabase
       .from("oauth_codes")
-      .select("id, user_id, redirect_uri, expires_at, used_at")
+      .select("id, user_id, redirect_uri, expires_at, used_at, code_challenge, code_challenge_method")
       .eq("code", code)
       .maybeSingle();
-    if (codeErr) return res.status(500).json({ ok: false, error: codeErr.message });
-    if (!codeRow) return res.status(400).json({ ok: false, error: "Invalid code" });
-    if (codeRow.used_at) return res.status(400).json({ ok: false, error: "Code already used" });
-    if (new Date(codeRow.expires_at) < new Date()) return res.status(400).json({ ok: false, error: "Code expired" });
+
+    if (codeErr) return res.status(500).json({ error: "server_error", error_description: codeErr.message });
+    if (!codeRow) return res.status(400).json({ error: "invalid_grant", error_description: "Invalid code" });
+    if (codeRow.used_at) return res.status(400).json({ error: "invalid_grant", error_description: "Code already used" });
+    if (new Date(codeRow.expires_at) < new Date()) return res.status(400).json({ error: "invalid_grant", error_description: "Code expired" });
+
+    // PKCE verification — skip if no challenge was stored (backwards compat)
+    if (codeRow.code_challenge && code_verifier) {
+      const { createHash } = await import("crypto");
+      const hash = createHash("sha256").update(code_verifier).digest("base64url");
+      if (hash !== codeRow.code_challenge) {
+        return res.status(400).json({ error: "invalid_grant", error_description: "PKCE verification failed" });
+      }
+    }
 
     await supabase.from("oauth_codes").update({ used_at: new Date().toISOString() }).eq("id", codeRow.id);
 
     const token = randomUUID();
     const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
-    const { error: insertErr } = await supabase.from("oauth_access_tokens").insert({ token, user_id: codeRow.user_id, expires_at: expiresAt });
-    if (insertErr) return res.status(500).json({ ok: false, error: insertErr.message });
+    const { error: insertErr } = await supabase.from("oauth_access_tokens").insert({
+      token,
+      user_id: codeRow.user_id,
+      expires_at: expiresAt,
+    });
+    if (insertErr) return res.status(500).json({ error: "server_error", error_description: insertErr.message });
 
-    return res.json({ access_token: token, token_type: "Bearer", expires_in: 7776000 });
+    return res.json({
+      access_token: token,
+      token_type: "Bearer",
+      expires_in: 7776000,
+    });
   } catch (err) {
-    return res.status(500).json({ ok: false, error: err.message });
+    return res.status(500).json({ error: "server_error", error_description: err.message });
   }
 });
 
