@@ -15,6 +15,7 @@ import {
 
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Allow MCP Inspector and browser-based clients to connect
 app.use((_req, res, next) => {
