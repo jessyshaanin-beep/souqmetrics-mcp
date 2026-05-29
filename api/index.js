@@ -526,6 +526,16 @@ app.get("/.well-known/openid-configuration", (_req, res) => {
   res.redirect("/.well-known/oauth-authorization-server");
 });
 
+// ── OAuth Protected Resource Metadata ─────────────────────────────────────────
+app.get("/.well-known/oauth-protected-resource", (_req, res) => {
+  res.json({
+    resource: "https://mcp.souqmetrics.co",
+    authorization_servers: ["https://mcp.souqmetrics.co"],
+    bearer_methods_supported: ["header"],
+    scopes_supported: ["read"],
+  });
+});
+
 // ── OAuth: Authorize redirect ──────────────────────────────────────────────────
 app.get("/oauth/authorize", (req, res) => {
   const { client_id, redirect_uri, state, code_challenge, code_challenge_method, response_type, scope } = req.query;
@@ -598,6 +608,11 @@ app.post("/oauth/token", async (req, res) => {
 // ── MCP: Streamable HTTP endpoint ─────────────────────────────────────────────
 // Single endpoint for all MCP communication. Stateless — a fresh transport and
 // McpServer instance is created per request, so this works on Vercel serverless.
+
+app.post("/", async (req, res) => {
+  req.url = "/mcp";
+  app.handle(req, res);
+});
 
 app.post("/mcp", async (req, res) => {
   const token = req.headers["authorization"]?.replace("Bearer ", "").trim();
