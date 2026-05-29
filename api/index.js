@@ -545,6 +545,7 @@ app.get("/oauth/authorize", (req, res) => {
 // ── OAuth: Token exchange ──────────────────────────────────────────────────────
 app.post("/oauth/token", async (req, res) => {
   try {
+    console.log("[token] body:", JSON.stringify(req.body));
     const { code, grant_type, redirect_uri, client_id, code_verifier } = req.body;
 
     if (grant_type !== "authorization_code") {
@@ -588,6 +589,7 @@ app.post("/oauth/token", async (req, res) => {
       expires_in: 7776000,
     });
   } catch (err) {
+    console.error("[token] CRASH:", err.stack || err.message);
     return res.status(500).json({ error: "server_error", error_description: err.message });
   }
 });
