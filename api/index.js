@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config();
 
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -565,7 +565,6 @@ app.post("/oauth/token", async (req, res) => {
 
     // PKCE verification — skip if no challenge was stored (backwards compat)
     if (codeRow.code_challenge && code_verifier) {
-      const { createHash } = await import("crypto");
       const hash = createHash("sha256").update(code_verifier).digest("base64url");
       if (hash !== codeRow.code_challenge) {
         return res.status(400).json({ error: "invalid_grant", error_description: "PKCE verification failed" });
